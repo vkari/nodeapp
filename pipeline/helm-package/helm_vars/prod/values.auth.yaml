@@ -1,0 +1,139 @@
+service:
+  name: tsc-nextjs-homepage
+  namespace: ecom-react-prod
+  nodeLabel: prodfrontend
+  replica: 1
+  tag: tsc-aks-prod-2024JAN-R01-v1
+  imagePullPolicy: Always
+  environmentName: prod
+  environmentType: auth
+  clientID: "237d67b0-0d74-4de0-b39d-88d0c488464b"
+  sourceKVUrl: "https://tsckvecmcusp01.azure.net/"
+  tenantID: "706f153e-1990-4b30-8bdf-a191304e7907"
+  port: 3000
+  tenant: tsc
+  timezone: America/Chicago
+  vaultUrl: "http://vault-ui.vault:8200/v1"
+  vaultTokenSecret: "ev-vault-token"
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 2000m
+    limits:
+      memory: 4Gi
+      cpu: 4000m
+
+image:
+  registry: tsccrecmp01.azurecr.io/tscnextjshom
+  tag: tsc-aks-d1
+
+ingress:
+  enabled: true
+  primaryHost: priv-prod-auth-hom-cus.shop.tractorsupply.com
+  secondaryHost: loh-prod-auth-hom-cus.shop.tractorsupply.com
+  secretname: shopwildcard-tls-ingress
+  tls:
+    crt: crt
+    key: key
+
+persistentVolumes:
+  enabled: true
+  name: react-hom-log-auth-volume
+  accessModes:
+    - ReadWriteOnce
+  storage: 15Gi
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+    - rsize=1048576
+    - wsize=1048576
+    - sec=sys
+  nfsPath: /tscsaecmcusp01/tscecmcusprdnfs004/prod/home/auth
+  nfsServer: tscsaecmcusp01.privatelink.file.core.windows.net
+
+persistentVolumesclaims:
+  enabled: true
+  storageName: react-hom-log-auth-volume
+  accessModes: ReadWriteOnce
+  nfsEnabled: true
+  storageClass:
+  storageSize: 15Gi
+  mountPath: /app/logs
+
+
+
+arch:
+  amd64: "3 - Most preferred"
+  ppc64le: "0 - Do not use"
+  s390x: "0 - Do not use"
+
+nodeSelector: {}
+
+tolerations: []
+affinity: {}
+
+##Persistent volumes claims
+
+extraPersistentVolumeClaims:
+  appLogAuthVolume:
+    enabled: true
+    storageName: react-hom-log-auth-volume
+    mountPath: /app/logs
+
+## pvc creation
+  loggingAuthVolume:
+    enabled: true
+    storageName: react-hom-log-auth-volume
+    accessModes: ReadWriteOnce
+    nfsEnabled: true
+    storageSize: 15Gi
+    storageClass:
+
+## Splunk configuration parameters
+splunk:
+  enable: true
+  image: tsccrecmp01.azurecr.io/splunk-otel-collector
+  splunktag: 0.90.0
+  splunk_memory_total_MIB: 500
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  sidecar_configmap: "splunk-otel-agent-hom-auth"
+  sidecar_secret: "splunk-otel-agent-auth-hom-secret"
+  checkpoint: "checkpoint"
+  filelogpath:
+    - /app_logs/${POD_NAME}*
+  index: ecom-react-prod
+  name: splunk-otel-agent
+  endpoint: https://http-inputs-tractorsupplyecom.splunkcloud.com:443/services/collector
+  token: "NDg0M2UyNDAtYjFlNC00MGNlLTllOTctNjJjMmU2YmQ0Zjhi"
+  source: kubernetes
+  maxConnections: 200
+  disableCompression: true
+  timeout: 10s
+  idleConnTimeout: 10s
+  app_name: splunk-otel-agent
+  app_version: 0.90.0
+  insecureSkipVerify: false
+  clientCert: ""
+  clientKey: ""
+  caFile: ""
+  retryOnFailure:
+    enabled: true
+    initialInterval: 5s
+    maxInterval: 30s
+    maxElapsedTime: 300s
+  sendingQueue:
+    enabled: true
+    numConsumers: 10
+    queueSize: 5000
+  checkpointPath: "/var/addon/splunk/otel_pos"
+  containerName: splunk-otel-agent
+secrets:
+  clientSecret:
+    name: azure-vault-client-secret
+    key: client-secret

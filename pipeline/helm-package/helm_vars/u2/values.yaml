@@ -1,0 +1,186 @@
+service:
+  name: tsc-product-graphql-api
+  namespace: ecom-svc-uat2
+  nodeLabel: uatfrontend
+  replica: 1
+  image: ecmwcsacreu2n.azurecr.io/tscproductgraphqlapi:tsc-aks-uat2
+  imagePullPolicy: Always
+  environmentName: uat
+  environmentType: live
+  port: 8080
+  tenant: tsc
+  timezone: America/Chicago
+  vaultUrl: "http://vault-1-12-ui.vault-1-12:8200/v1"
+  vaultTokenSecret: "ev-vault-token"
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+ingress:
+  enabled: true
+  primaryHost: priv-u2productgraphqllive.shop.tractorsupply.com
+  secondaryHost: loh-u2productgraphqllive-eus.shop.tractorsupply.com
+  secretname: shopwildcard-tls-ingress
+  tls:
+    crt: crt
+    key: key
+
+persistentVolumes:
+  enabled: false
+  name: your-volume-name
+  accessModes:
+    - ReadWriteOnce
+  storage: 10Gi
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+    - rsize=1048576
+    - wsize=1048576
+    - sec=sys
+  nfsPath: /path/to/your/nfs
+  nfsServer: nfs.yourserver.com
+
+persistentVolumesclaims:
+  enabled: false
+  storageName: your-storage-name
+  accessModes: ReadWriteOnce
+  nfsEnabled: true
+  storageClass: your-storage-class
+  storageSize: 10Gi
+
+splunk:
+  enable: false
+  image: ecmwcsacreu2n.azurecr.io/splunk-otel-collector
+  tag: 0.90.0
+  splunk_memory_total_MIB: 500
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  sidecar_configmap: "splunk-otel-agent-live"
+  sidecar_secret: "splunk-otel-agent-live-secret"
+  checkpoint: "checkpoint"
+  filelogpath:
+    - /app_logs/${POD_NAME}*
+  index: ecom-service-nonprod
+  name: splunk-otel-agent
+  endpoint: https://http-inputs-tractorsupplyecom.splunkcloud.com:443/services/collector
+  token: "NTMwM2JjZjQtODljNS00NzUwLWE5ZDctZTY5MmVjM2I2NjRl"
+  source: kubernetes
+  maxConnections: 200
+  disableCompression: true
+  timeout: 10s
+  idleConnTimeout: 10s
+  app_name: splunk-otel-agent
+  app_version: 0.90.0
+  insecureSkipVerify: false
+  clientCert: ""
+  clientKey: ""
+  caFile: ""
+  retryOnFailure:
+    enabled: true
+    initialInterval: 5s
+    maxInterval: 30s
+    maxElapsedTime: 300s
+  sendingQueue:
+    enabled: true
+    numConsumers: 10
+    queueSize: 5000
+  checkpointPath: "/var/addon/splunk/otel_pos"
+  containerName: splunk-otel-agent
+secrets:
+  clientSecret:
+    name: azure-vault-client-secret
+    key: client-secret
+applicationConfigYaml:
+  server.port: 8080
+  spring.application.name: tsc-hom-graphql-api
+  spring.cloud.config.enabled: false
+  server.ssl.enabled: false
+  server.ssl.trust-store-password: changeit
+  server.ssl.trust-store: src/main/resources/tsc-ca-root.jks
+  server.ssl.key-store: src/main/resources/tsc-ca-root.jks
+  server.ssl.key-store-password: changeit
+  spring.graphql.graphiql.enabled: true
+  spring.graphql.instrumentation.max-query-complexity: 300
+  spring.graphql.instrumentation.max-query-depth: 30
+  tsc.sap.keystore.password: changeit
+  tsc.graphql.product.username: abaftseize
+  tsc.graphql.product.password: E7F95GDG4Y2Q
+  tsc.password.storage.type: '{noop}'
+  tsc.api-role: USER
+  tsc.base-url: https://priv-u2slr.shop.tractorsupply.com/
+  tsc.base-url-delivery: https://priv-u2.shop.tractorsupply.com/
+  tsc.bazaar-voice-wcs-url: /product_review_question/getContent
+  tsc.frontend-url: https://q7.shop.tractorsupply.com/tsc/product/
+  tsc.product-url: /productview/byId/
+  tsc.product-view-url: /productview/getItemPrice
+  tsc.decode-token-url: /seo/decodeToken
+  tsc.category-view-url: /categoryview/byId/
+  tsc.search-url: search/ext/resources/store/
+  tsc.wcs-url: wcs/resources/store/
+  tsc.delivery-url: /cart/delivery_options
+  tsc.assembly-url: /cart/@self/assembly_info
+  tsc.storeid: 10151
+  tsc.langId: -1
+  tsc.catalogid: 10051
+  tsc.responseformat: json
+  tsc.currency: USD
+  tsc.profilename: X_findProductByIds_AdditionalDetails
+  tsc.zoneid: 53
+  tsc.fetchprice: mobileApp
+  tsc.stlocid: 2
+  tsc.fromPage: hom
+  tsc.bazaarVoiceFormatString: json
+  tsc.max-retry-allowed: 1
+  tsc.time-between-retries: 0
+  tsc.breadcrumb-profilename: IBM_BreadCrumbByCategoryUniqueId
+  tsc.connect-timeout: 3000
+  tsc.read-timeout: 3000
+  tsc.logging.performance.enabled: true
+  tsc.restcalls.maxtime: 1000
+  tsc.graphql.maxtime: 2000
+  tsc.pooling-maxTotal: 150
+  tsc.pooling-defaultMaxPerRoute: 5
+  tsc.pooling-validateAfterInactivity: 30000
+  tsc.total-timeout: 5000
+  tsc.threadpool-coresize: 5
+  tsc.threadpool-maxsize: 15
+  tsc.azure.cloud.keyvault.url: https://ecm-wcs-akv-001-n.vault.azure.net/
+  tsc.azure.cloud.keyvault.client-id: 237d67b0-0d74-4de0-b39d-88d0c488464b
+
+  tsc.azure.cloud.keyvault.tenant-id: 706f153e-1990-4b30-8bdf-a191304e7907
+  tsc.azure.cloud.keyvault.managed-identity-enabled: false
+  management.endpoints.web.exposure.include: '*'
+  management.metrics.export.elastic.host: https://es-es-http.elastic-system.svc.cluster.local:9200
+  management.metrics.export.elastic.auto-create-index: true
+  management.metrics.export.elastic.index: hom-uat2-auth-api-metrics
+  management.metrics.export.elastic.indexDateFormat: yyyy-MM-dd
+  management.metrics.export.elastic.api-key-credentials: Y3JzV3NvY0JOeUMtbUNhb0xSTWU6U0VubXVoNWRUWldWWkx3dzE1u2lJQQ==
+  spring.cloud.azure.keyvault.secret.property-sources[0].enabled: true
+  spring.cloud.azure.keyvault.secret.property-sources[0].endpoint: ${tsc.azure.cloud.keyvault.url}
+  spring.cloud.azure.keyvault.secret.property-sources[0].credential.client-id: ${tsc.azure.cloud.keyvault.client-id}
+  spring.cloud.azure.keyvault.secret.property-sources[0].credential.client-secret: ${tsc.azure.cloud.keyvault.client-secret}
+  spring.cloud.azure.keyvault.secret.property-sources[0].profile.tenant-id: ${tsc.azure.cloud.keyvault.tenant-id}
+  spring.cloud.azure.keyvault.secret.property-sources[0].credential.managed-identity-enabled: ${tsc.azure.cloud.keyvault.managed-identity-enabled}
+  spring.cloud.azure.keyvault.certificate.enabled: true
+  spring.cloud.azure.keyvault.certificate.endpoint: ${tsc.azure.cloud.keyvault.url}
+  spring.cloud.azure.keyvault.certificate.credential.client-id: ${tsc.azure.cloud.keyvault.client-id}
+  spring.cloud.azure.keyvault.certificate.credential.client-secret: ${tsc.azure.cloud.keyvault.client-secret}
+  spring.cloud.azure.keyvault.certificate.profile.tenant-id: ${tsc.azure.cloud.keyvault.tenant-id}
+  spring.cloud.azure.keyvault.certificate.credential.managed-identity-enabled: ${tsc.azure.cloud.keyvault.managed-identity-enabled}
+  server.ssl.trust-store-type: AzureKeyVault
+  azure.keyvault.uri: ${tsc.azure.cloud.keyvault.url}
+  azure.keyvault.client-id: ${tsc.azure.cloud.keyvault.client-id}
+  azure.keyvault.client-secret: ${tsc.azure.cloud.keyvault.client-secret}
+  azure.keyvault.enabled: true
+  azure.keyvault.tenant-id: ${tsc.azure.cloud.keyvault.tenant-id}
+  azure.keyvault.jca.refresh-certificates-when-have-un-trust-certificate: true
+  logging.pattern.console: '{"time": "%d", "level": "%p", "trace-id": "%X{traceId}", "span-id": "%X{spanId}", "source": "%logger{63}:%L", "message": "%enc{%m}{JSON}", "httpRequestUrl": "%X{httpRequestUrl}", "api-name": "%X{api-name}", "time-taken": "%X{time-taken}"}%n%enc{%throwable}{JSON}'

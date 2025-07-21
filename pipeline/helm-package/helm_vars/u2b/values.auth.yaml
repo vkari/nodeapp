@@ -1,0 +1,107 @@
+service:
+  name: tsc-nextjs-homepage
+  namespace: ecom-react-u2b
+  nodeLabel: uatfrontend
+  replica: 1
+  tag: tsc-aks-u2b-2024JAN-R01-v1
+  imagePullPolicy: Always
+  environmentName: u2b
+  environmentType: auth
+  port: 3000
+  tenant: tsc
+  timezone: America/Chicago
+  vaultUrl: "http://vault-1-12-ui.vault-1-12:8200/v1"
+  vaultTokenSecret: "ev-vault-token"
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+ingress:
+  enabled: true
+  primaryHost: priv-u2b-auth-hom-eu2.shop.tractorsupply.com
+  secondaryHost: loh-u2b-auth-hom-eu2.shop.tractorsupply.com
+  secretname: shopwildcard-tls-ingress
+
+persistentVolumes:
+  enabled: false
+  name: react-hom-log-auth-volume
+  accessModes:
+    - ReadWriteOnce
+  storage: 15Gi
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+    - rsize=1048576
+    - wsize=1048576
+    - sec=sys
+  nfsPath: /path/to/your/nfs
+  nfsServer: nfs.yourserver.com
+
+persistentVolumesclaims:
+  enabled: false
+  storageName: react-hom-log-auth-volume
+  accessModes: ReadWriteOnce
+  nfsEnabled: true
+  storageClass:
+  storageSize: 15Gi
+  mountPath: /app/logs
+
+
+
+arch:
+  amd64: "3 - Most preferred"
+  ppc64le: "0 - Do not use"
+  s390x: "0 - Do not use"
+
+splunk:
+  enable: false
+  image: tsccrecmnp01.azurecr.io/splunk-otel-collector
+  tag: 0.90.0
+  splunk_memory_total_MIB: 500
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      memory: 256Mi
+      cpu: 100m
+  sidecar_configmap: "splunk-otel-agent-hom-auth"
+  sidecar_secret: "splunk-otel-agent-auth-hom-secret"
+  checkpoint: "checkpoint"
+  filelogpath:
+    - /app_logs/${POD_NAME}*
+  index: ecom-react-nonprod
+  name: splunk-otel-agent
+  endpoint: https://http-inputs-tractorsupplyecom.splunkcloud.com:443/services/collector
+  token: "NTMwM2JjZjQtODljNS00NzUwLWE5ZDctZTY5MmVjM2I2NjRl"
+  source: kubernetes
+  maxConnections: 200
+  disableCompression: true
+  timeout: 10s
+  idleConnTimeout: 10s
+  app_name: splunk-otel-agent
+  app_version: 0.90.0
+  insecureSkipVerify: false
+  clientCert: ""
+  clientKey: ""
+  caFile: ""
+  retryOnFailure:
+    enabled: true
+    initialInterval: 5s
+    maxInterval: 30s
+    maxElapsedTime: 300s
+  sendingQueue:
+    enabled: true
+    numConsumers: 10
+    queueSize: 5000
+  checkpointPath: "/var/addon/splunk/otel_pos"
+  containerName: splunk-otel-agent
+  
+secrets:
+  clientSecret:
+    name: azure-vault-client-secret
+    key: client-secret
