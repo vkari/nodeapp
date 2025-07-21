@@ -1,0 +1,87 @@
+name: Rollback Helm release to previous revision
+description: Rollback Helm release to previous revision
+
+inputs:
+  java_version:
+    description: 'JAVA version'
+    default: 21
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  azure_client_id:
+    description: 'AZURE_CLIENT_ID org secret'
+    type: string
+  azure_client_secret:
+    description: 'AZURE_CLIENT_SECRET org secret'
+    type: string
+  azure_tenant_id:
+    description: 'AZURE_TENANT_ID org secret'
+    type: string
+  azure_client_id_prod:
+    description: 'AZURE_CLIENT_ID_PROD org secret'
+    type: string
+  azure_client_secret_prod:
+    description: 'AZURE_CLIENT_SECRET_PROD org secret'
+    type: string
+  azure_tenant_id_prod:
+    description: 'AZURE_TENANT_ID_PROD org secret'
+    type: string
+  kube_context:
+    description: "Non-prod AKS context"
+    type: string
+    default: 'aks-wcs-n-eastus2-01'
+  kube_context_prod:
+    description: "Prod AKS context"
+    type: string
+    default: 'aks-wcs-p-eastus2-01'
+  kube_context_prod_central:
+    description: "Prod AKS context"
+    type: string
+    default: 'aks-wcs-p-centralus-01'
+  rg:
+    description: "Non-prod RG"
+    type: string
+    default: 'rg-wcs-nonprod-eastus2'
+  rg_prod:
+    description: "Prod RG"
+    type: string
+    default: 'rg-wcs-prod-eastus2'
+  rg_prod_central:
+    description: "Prod RG"
+    type: string
+    default: 'rg-wcs-prod-centralus'
+  e:
+    description: 'Environment name'
+    type: string
+  service:
+    description: 'Service name'
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Helm rollback
+      id: run-helm-rollback
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        AZURE_CLIENT_ID: ${{ inputs.azure_client_id }}
+        AZURE_CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        RG_NP: ${{ inputs.rg }}
+        KUBE_CONTEXT_NP: ${{ inputs.kube_context }}
+        AZURE_CLIENT_ID_PROD: ${{ inputs.azure_client_id_prod }}
+        AZURE_CLIENT_SECRET_PROD: ${{ inputs.azure_client_secret_prod }}
+        AZURE_TENANT_ID_PROD: ${{ inputs.azure_tenant_id_prod }}
+        RG_P: ${{ inputs.rg_prod }}
+        KUBE_CONTEXT_P: ${{ inputs.kube_context_prod }}
+        RG_P_CENTRAL: ${{ inputs.rg_prod_central }}
+        KUBE_CONTEXT_P_CENTRAL: ${{ inputs.kube_context_prod_central }}
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        SERVICE: ${{ inputs.service }}
+        E: ${{ inputs.e }}
+      shell: bash
+      run: ${GITHUB_ACTION_PATH}/helm.sh

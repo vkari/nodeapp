@@ -1,0 +1,107 @@
+name: Docker Publish
+description: Build and push Docker images with appropriate tag
+
+inputs:
+  acr_name:
+    required: true
+  acr_username_nonprod:
+    required: false
+  acr_password_nonprod:
+    required: false
+  acr_username_prod:
+    required: false
+  acr_password_prod:
+    required: false
+  environment:
+    required: false
+  image_repo:
+    required: true
+  image_path:
+    required: true
+  docker_tag:
+    required: true
+
+outputs:
+  docker_tag:
+    description: "Docker image tag used"
+    value: ${{ steps.set-tag.outputs.docker_tag }}
+
+runs:
+  using: "composite"
+  steps:
+#    - name: 📥 Checkout code
+#      uses: actions/checkout@v4
+
+#    - name: 📦 Download built app artifact
+#      uses: actions/download-artifact@v4
+#      with:
+#        name: app
+#        path: app
+
+    - name: 🏷️ Set Docker Tag
+      id: set-tag
+      shell: bash
+      run: |
+        formatted_branch="${GITHUB_REF_NAME//\//.}"
+        tag="${formatted_branch}.${GITHUB_RUN_NUMBER}"
+        echo "docker_tag=$tag" >> $GITHUB_OUTPUT
+        echo "DOCKER_TAG=$tag" >> $GITHUB_ENV
+        ls -lrt **
+        ls -lart app/
+    
+
+    - name: 🔐 Login to Azure ACR
+      shell: bash
+      run: |
+        echo "🔐 Logging in to ACR..."
+        echo "AZURE_CONTAINER_REGISTRY: ${{ env.AZURE_CONTAINER_REGISTRY }}"
+        echo "🔐 Target registry: ${{ inputs.image_repo }}"
+        ENV_NAME="${{ inputs.environment }}"
+        if [[ "$ENV_NAME" == prod* ]] && [ -n "${{ inputs.acr_username_prod }}" ] && [ -n "${{ inputs.acr_password_prod }}" ]; then
+          echo "🔐 Using production credentials"
+          echo "${{ inputs.acr_password_prod }}" | docker login ${{ inputs.image_repo }} -u "${{ inputs.acr_username_prod }}" --password-stdin
+        elif [ -n "${{ inputs.acr_username_nonprod }}" ] && [ -n "${{ inputs.acr_password_nonprod }}" ]; then
+          echo "🔐 Using non-prod credentials"
+          echo "${{ inputs.acr_password_nonprod }}" | docker login ${{ inputs.image_repo }} -u "${{ inputs.acr_username_nonprod }}" --password-stdin
+        else
+          echo "🔐 Using Azure CLI: az acr login --name ${{ inputs.acr_name }}"
+          az acr login --name ${{ inputs.acr_name }}
+        fi
+
+    - name: 🛠️ Set up Docker Buildx
+      id: setup-buildx
+      shell: bash
+      run: |
+        ls -lrta
+        if docker buildx version > /dev/null 2>&1; then
+          echo "🛠️ Docker Buildx is available. Setting it up..."
+          docker buildx create --use --name mybuilder || true
+          docker buildx inspect --bootstrap
+          echo "buildx=true" >> $GITHUB_ENV
+        else
+          echo "⚠️ Docker Buildx not available; using standard build."
+          echo "buildx=false" >> $GITHUB_ENV
+        fi
+
+    - name: 🐳 Build and Push Docker Image
+      shell: bash
+      env:
+        DOCKER_CLI_EXPERIMENTAL: enabled
+      run: |
+        echo "📦 Building & pushing image..."
+        REPO_PATH=$(echo "${{ inputs.image_path }}" | tr '[:upper:]' '[:lower:]')
+        cp -r ./app ./pipeline/docker/
+        if [ ! -d app ]; then
+          echo "❌ app folder not found. Did the build step run?"
+          exit 1
+        fi
+
+        if [ "$buildx" = "true" ]; then
+          docker buildx build --platform linux/amd64 \
+            -t ${{ inputs.image_repo }}/$REPO_PATH:${{ env.DOCKER_TAG }} \
+            -f pipeline/docker/Dockerfile --push pipeline/docker
+        else
+          docker build -t ${{ inputs.image_repo }}/$REPO_PATH:${{ env.DOCKER_TAG }} \
+            -f pipeline/docker/Dockerfile pipeline/docker
+          docker push ${{ inputs.image_repo }}/$REPO_PATH:${{ env.DOCKER_TAG }}
+        fi

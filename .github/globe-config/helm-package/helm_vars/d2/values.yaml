@@ -1,0 +1,136 @@
+service:
+  name: tsc-search-microservice
+  namespace: ecom-svc-d2
+  nodeLabel: lowbackend
+  replica: 1
+  imagePullPolicy: Always
+  environmentName: d2
+  environmentType: live
+  port: 8080
+  tenant: tsc
+  timezone: America/Chicago
+  vaultUrl: "http://vault-1-12-ui.vault-1-12:8200/v1"
+  vaultTokenSecret: "ev-vault-token"
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+image:
+  registry: tsccrecmnp01.azurecr.io/tsc-search-microservice
+  tag: tsc-aks-d2
+ingress:
+  enabled: true
+  primaryHost: priv-d2-src-srv-eu2.shop.tractorsupply.com
+  secondaryHost: loh-d2-src-srv-eu2.shop.tractorsupply.com
+  secretname: shopwildcard-tls-ingress
+  tls:
+    crt: crt
+    key: key
+
+persistentVolumes:
+  enabled: false
+  name: your-volume-name
+  accessModes:
+    - ReadWriteOnce
+  storage: 10Gi
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+    - rsize=1048576
+    - wsize=1048576
+    - sec=sys
+  nfsPath: /path/to/your/nfs
+  nfsServer: nfs.yourserver.com
+
+persistentVolumesclaims:
+  enabled: false
+  storageName: src-log-live-volume
+  accessModes: ReadWriteOnce
+  nfsEnabled: false
+  storageClass: your-storage-class
+  storageSize: 10Gi
+
+arch:
+  amd64: "3 - Most preferred"
+  ppc64le: "0 - Do not use"
+  s390x: "0 - Do not use"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+##Persistent volumes claims
+
+extraPersistentVolumeClaims:
+  appLogLiveVolume:
+    enabled: false
+    storageName: search-app-log-live-volume
+    mountPath: /app/logs
+
+## pvc creation
+  loggingLiveVolume:
+    enabled: false
+    storageName: search-app-log-live-volume
+    accessModes: ReadWriteOnce
+    nfsEnabled: true
+    storageSize: 15Gi
+    storageClass:
+
+## Splunk configuration parameters
+splunk:
+  enable: false
+  image: tsccrecmnp01.azurecr.io/splunk-otel-collector
+  splunktag: 0.90.0
+  splunk_memory_total_MIB: 500
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  sidecar_configmap: "splunk-otel-agent-src-live"
+  sidecar_secret: "splunk-otel-agent-src-live-secret"
+  checkpoint: "checkpoint"
+  filelogpath:
+    - /app_logs/${POD_NAME}*
+  index: ecom-backendservices-nonprod
+  name: splunk-otel-agent
+  endpoint: https://http-inputs-tractorsupplyecom.splunkcloud.com:443/services/collector
+  token: ""
+  source: kubernetes
+  maxConnections: 200
+  disableCompression: true
+  timeout: 10s
+  idleConnTimeout: 10s
+  app_name: splunk-otel-agent
+  app_version: 0.90.0
+  insecureSkipVerify: false
+  clientCert: ""
+  clientKey: ""
+  caFile: ""
+  retryOnFailure:
+    enabled: true
+    # Time to wait after the first failure before retrying; ignored if enabled is false
+    initialInterval: 5s
+    # The upper bound on backoff; ignored if enabled is false
+    maxInterval: 30s
+    # The maximum amount of time spent trying to send a batch; ignored if enabled is false
+    maxElapsedTime: 300s
+  sendingQueue:
+    enabled: true
+    # Number of consumers that dequeue batches; ignored if enabled is false
+    numConsumers: 10
+    # Maximum number of batches kept in memory before dropping; ignored if enabled is false
+    queueSize: 5000
+  checkpointPath: "/var/addon/splunk/otel_pos"
+  containerName: splunk-otel-agent
+secrets:
+  clientSecret:
+    name: azure-vault-client-secret
+    key: client-secret

@@ -1,0 +1,81 @@
+name: Manual Helm Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Choose the environment'
+        required: true
+        default: ''
+        type: choice
+        options:
+        - ''
+        - 'd1'
+        - 'd2'
+        - 'd3'
+        - 'q1'
+        - 'q2'
+        - 'q3'
+        - 'u1a'
+        - 'u1b'
+        - 'u2a'
+        - 'u2b'
+        - 'p1'
+        - 'p2'
+        - 'proda'
+        - 'prodb'
+        - 'prod'
+      service:
+        description: 'Choose the service'
+        required: true
+        default: ''
+        type: choice
+        options:
+        - ''
+        - 'tsc-catalog-dl-service'
+        - 'tsc-catalog-core-service'
+        - 'tsc-catalog-export-service'
+        - 'tsc-price-core-service'
+        - 'tsc-catalog-pricing-graphql'      
+
+jobs:
+  allow-helm-rollback:
+    if: |
+      github.actor == 'sbortsov_tsco'
+    runs-on: ubuntu-latest
+    name: ${{ inputs.service }} on ${{ inputs.env }}
+    steps:
+      - name: Rollback ${{ inputs.service }} on ${{ inputs.env }} 
+        run: |
+          echo "[DEBUG] Allow to proceed with Helm rollback"
+          exit 0
+
+  helm-rollback:
+    needs: [allow-helm-rollback]
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: helm-rollback
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: helm-rollback
+        id: helm-rollback
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          e: ${{ inputs.env }}
+          service: ${{ inputs.service }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-rollback@main

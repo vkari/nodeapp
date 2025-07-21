@@ -1,0 +1,6 @@
+name: Regression Test
+runs:
+  using: "composite"
+  steps:
+    - name: Run Regression Tests
+      run: echo "Running regression tests..."

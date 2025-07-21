@@ -1,0 +1,37 @@
+on:
+  workflow_call:
+    secrets:
+      gh_user:
+        description: 'GH_USER org secret'
+        required: true
+      gh_token:
+        description: 'GH_TOKEN org secret'
+        required: true
+      sonar_token:
+        description: 'SONAR_TOKEN org secret'
+        required: true
+
+jobs:
+  build-sonar:
+    if: |
+      (startsWith(github.ref,'refs/heads/M') == true && contains(fromJson('["main"]'), github.base_ref))
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: build-sonar
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: sonar-build-action
+        id: sonar-build-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          sonar_token: ${{ secrets.sonar_token }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-sonarqube@main

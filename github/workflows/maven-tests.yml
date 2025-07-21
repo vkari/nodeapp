@@ -1,0 +1,207 @@
+on:
+  workflow_call:
+
+    inputs:
+      test:
+        description: 'Test suite'
+        type: string
+        required: false
+        default: ''
+      profile:
+        description: 'mvn profile for tests'
+        type: string
+        required: false
+        default: ''
+      groups:
+        description: 'Tests group'
+        type: string
+        required: false
+        default: ''
+      env:
+        description: 'Choose the environment'
+        type: string
+        required: true
+      file_path: 
+        description: 'Where to put the file?'
+        type: string
+        required: false
+        default: 'src/main/resources/peak_hour_testing/'
+      file_name: 
+        description: 'File name?'
+        type: string
+        required: false
+        default: 'WCS_Catalog_Trace_Info_CnP.xlsx'
+      storage_account: 
+        description: 'Storage account name'
+        type: string
+        required: false
+        default: 'tscsaecmeu2p02'
+      blob_container: 
+        description: 'Blob container name'
+        type: string
+        required: false
+        default: 'ecm-prod'
+
+    secrets:
+      gh_user:
+        description: 'GH_USER org secret'
+        required: true
+      gh_token:
+        description: 'GH_TOKEN org secret'
+        required: true
+      sonar_token:
+        description: 'SONAR_TOKEN org secret'
+        required: true
+      azure_client_id:
+        description: 'AZURE_CLIENT_ID org secret'
+        required: true
+      azure_client_secret:
+        description: 'AZURE_CLIENT_SECRET org secret'
+        required: true
+      azure_tenant_id:
+        description: 'AZURE_TENANT_ID org secret'
+        required: true
+      azure_client_id_prod:
+        description: 'AZURE_CLIENT_ID_PROD org secret'
+        required: true
+      azure_client_secret_prod:
+        description: 'AZURE_CLIENT_SECRET_PROD org secret'
+        required: true
+      azure_tenant_id_prod:
+        description: 'AZURE_TENANT_ID_PROD org secret'
+        required: true
+      catalog_dl_token:
+        description: 'CATALOG_DL_TOKEN org secret'
+        required: true
+
+jobs:
+  e2e-comparison-tests:
+    if: |
+      inputs.profile == 'comparison-tests'
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Allure history
+        if: join(github.event.pull_request.labels) == ''
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: download-wcs-trace-file
+        id: download-wcs-trace-file
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id_prod }}
+          file_path: ${{ inputs.file_path }}
+          file_name: ${{ inputs.file_name }}
+          storage_account: ${{ inputs.storage_account }}
+          blob_container: ${{ inputs.blob_container }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-download-blob-file@main
+
+      - name: peak-hour-test-action
+        id: peak-hour-test-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          sonar_token: ${{ secrets.sonar_token }}
+          env: ${{ inputs.env }}
+          test: ${{ inputs.test }}
+          profile: ${{ inputs.profile }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-peak-hour-test@main
+
+      - name: allure-report-dev-action
+        id: allure-report-dev-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          e: ${{ inputs.env }}
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-allure-report-e2e@main
+
+      - name: Deploy Allure Report to Github Pages
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-github-pages@main
+
+      - name: Publish Allure Report URLs as PR comment
+        with:
+          comment_body: "${{ steps.allure-report-dev-action.outputs.allure_url }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+  
+  e2e-validation-tests:
+    if: |
+      inputs.profile != 'comparison-tests'
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: validation-tests-action
+        id: validation-tests-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          sonar_token: ${{ secrets.sonar_token }}
+          env: ${{ inputs.env }}
+          groups: ${{ inputs.groups }}
+          test: ${{ inputs.test }}
+          profile: ${{ inputs.profile }}
+          catalog_dl_token: ${{ secrets.catalog_dl_token }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-tests@main
+      
+      - name: allure-report-dev-action
+        id: allure-report-dev-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          e: ${{ inputs.env }}
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-allure-report-e2e@main
+
+      - name: Deploy Allure Report to Github Pages
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-github-pages@main
+
+      - name: Publish Allure Report URLs as PR comment
+        with:
+          comment_body: "${{ steps.allure-report-dev-action.outputs.allure_url }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+      - name: Publish Allure Report URL as Annotation
+        run: |
+          echo "::notice::${{ steps.allure-report-dev-action.outputs.allure_url }}"

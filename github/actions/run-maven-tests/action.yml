@@ -1,0 +1,24 @@
+name: Run Maven Tests
+description: GitHub Action to Run Maven Tests
+
+inputs:
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Maven Tests
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ~/.m2/settings.xml
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ./settings.xml
+        mvn -s settings.xml test

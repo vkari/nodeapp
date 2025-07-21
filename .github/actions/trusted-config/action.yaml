@@ -1,0 +1,139 @@
+name: Load Trusted Configuration
+
+description: Loads environment-specific configuration and exports secrets/values.
+
+inputs:
+  token:
+    description: GitHub token for checkout
+    required: true
+  secrets_json:
+    description: JSON string of all GitHub secrets
+    required: true
+  environment:
+    description: Optional override environment
+    required: false
+
+outputs:
+  environment:
+    value: ${{ steps.config.outputs.environment }}
+  autoDeploy:
+    value: ${{ steps.config.outputs.autoDeploy }}
+  deployEnvsJson:
+    value: ${{ steps.config.outputs.deployEnvsJson }}
+  publishGit:
+    value: ${{ steps.config.outputs.publishGit }}
+  enableSonar:
+    value: ${{ steps.config.outputs.enableSonar }}
+  enableRegression:
+    value: ${{ steps.config.outputs.enableRegression }}
+  appType:
+    value: ${{ steps.config.outputs.appType }}
+  cd:
+    value: ${{ steps.config.outputs.cd }}
+  mavenArgs:
+    value: ${{ steps.config.outputs.mavenArgs }}
+  mavenVersion:
+    value: ${{ steps.config.outputs.mavenVersion }}
+  javaVersion:
+    value: ${{ steps.config.outputs.javaVersion }}
+  nodeVersion:
+    value: ${{ steps.config.outputs.nodeVersion }}
+  nodeInstallArgs:
+    value: ${{ steps.config.outputs.nodeInstallArgs }}
+  nodeBuildArgs:
+    value: ${{ steps.config.outputs.nodeBuildArgs }}
+  nodeTestArgs:
+    value: ${{ steps.config.outputs.nodeTestArgs }}
+  sonarProjectName:
+    value: ${{ steps.config.outputs.sonarProjectName }}
+  acrProd:
+    value: ${{ steps.config.outputs.acrProd }}
+  acrNonProd:
+    value: ${{ steps.config.outputs.acrNonProd }}
+  manualProdApproval:
+    value: ${{ steps.config.outputs.manualProdApproval }}
+  manualNonProdApproval:
+      value: ${{ steps.config.outputs.manualNonProdApproval }}
+  aemEnv:
+    value: ${{ steps.config.outputs.aemEnv }}
+  buildDeploy:
+    value: ${{ steps.config.outputs.buildDeploy }}
+  skipQualityGate:
+    value: ${{ steps.config.outputs.skipQualityGate }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v4
+      with:
+        token: ${{ inputs.token }}
+
+    - name: Checkout Commons Library
+      uses: actions/checkout@v4
+      with:
+        repository: Tractor-Supply-Ecommerce/pipeline-commons-library
+        ref: main
+        token: ${{ inputs.token }}
+        path: commons
+
+    - name: 📜 Load Resolved Configuration
+      id: config
+      shell: bash
+      env:
+        INPUT_ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        pip install pyyaml
+        python3 ${{ github.action_path }}/config_resolver.py
+        cat resolved.json
+
+        # Export variables to both GITHUB_ENV and GITHUB_OUTPUT
+        while IFS='=' read -r key value; do
+          echo "$key=$value" >> "$GITHUB_ENV"
+          echo "$key=$value" >> "$GITHUB_OUTPUT"
+        done < resolved.env
+
+    - name: 🔐 Export Secrets
+      shell: bash
+      run: |
+        echo '${{ inputs.secrets_json }}' > secrets.json
+        for key in AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID SONAR_TOKEN SONAR_HOST_URL GH_USER GH_TOKEN DOCKER_USER DOCKER_PASS ACR_USERNAME_NONPROD ACR_PASSWORD_NONPROD ACR_USERNAME_PROD ACR_PASSWORD_PROD ACR_NONPROD; do
+          if jq -e ".\"$key\"" secrets.json > /dev/null; then
+            val=$(jq -r ".\"$key\"" secrets.json)
+            echo "$key=$val" >> $GITHUB_ENV
+          else
+            echo "⚠️ Warning: $key not set in secrets. Skipping."
+          fi
+        done
+
+        ACR_ENV="${{ steps.config.outputs.environment }}"
+        if [[ -z "$ACR_ENV" ]]; then
+          echo "❌ ERROR: No valid environment resolved. Exiting."
+          exit 1
+        fi
+
+        case "$ACR_ENV" in
+          d1|d2|d3|q1|q2|q3|u1a|u1b|u2a|u2b|p1) ACR_NAME="tsccrecmnp01" ;;
+          d4|d5|d6|q4|q5|q6|p2) ACR_NAME="tsccrecmnp01" ;;
+          proda|prodb|prod|proddr) ACR_NAME="tsccrecmp01" ;;
+          *) echo "❌ Unknown environment: $ACR_ENV"; exit 1 ;;
+        esac
+
+        echo "AZURE_CONTAINER_REGISTRY=${ACR_NAME}.azurecr.io" >> $GITHUB_ENV
+        echo "AZURE_CONTAINER_NAME=$ACR_NAME" >> $GITHUB_ENV
+
+        if [[ -z "$DOCKER_TAG" ]]; then
+          formatted_branch="${GITHUB_REF_NAME//\//.}"
+          echo "DOCKER_TAG=${formatted_branch}.${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+        fi
+
+        repo_name="${GITHUB_REPOSITORY##*/}"
+        echo "REPO_NAME=$repo_name" >> $GITHUB_ENV
+        echo "NEXT_ENV=$ACR_ENV" >> $GITHUB_ENV
+        echo "BUILD_ENV=$ACR_ENV" >> $GITHUB_ENV
+        echo "DEPLOY_ENV=$ACR_ENV" >> $GITHUB_ENV
+        echo "NEXT_AEM=${{ steps.config.outputs.aemEnv }}" >> $GITHUB_ENV
+        echo "AEM_ENV=${{ steps.config.outputs.aemEnv }}" >> $GITHUB_ENV
+        echo "SKIP_QUALITY_GATE=${{ steps.config.outputs.skipQualityGate }}" >> $GITHUB_ENV
+
+        rm -f secrets.json

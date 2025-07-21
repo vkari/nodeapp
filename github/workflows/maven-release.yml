@@ -1,0 +1,587 @@
+on:
+  workflow_call:
+    inputs:
+      azure_acr_name:
+        description: "Non-prod ACR name"
+        type: string
+        default: 'tsccrecmnp01'
+      azure_acr_name_prod:
+        description: "Prod ACR name"
+        type: string
+        default: 'tsccrecmp01'
+      kube_context:
+        description: "Non-prod AKS context"
+        type: string
+        default: 'aks-wcs-n-eastus2-01'
+      kube_context_prod:
+        description: "Prod AKS context"
+        type: string
+        default: 'aks-wcs-p-eastus2-01'
+      rg:
+        description: "Non-prod RG"
+        type: string
+        default: 'rg-wcs-nonprod-eastus2'
+      rg_prod:
+        description: "Prod RG"
+        type: string
+        default: 'rg-wcs-prod-eastus2'
+      service_name:
+        description: "Service Name"
+        type: string
+        default: 'NA'
+      java_version:
+        description: 'JAVA version.'
+        type: string
+        default: '21'
+      active_track:
+        description: 'Track number'
+        type: string
+        default: ''
+      e2e_tests:
+        description: 'Enable/Disable e2e tests job in this workflow'
+        type: 'string'
+        default: 'false'
+    secrets:
+      gh_user:
+        description: 'GH_USER org secret'
+        required: true
+      gh_token:
+        description: 'GH_TOKEN org secret'
+        required: true
+      sonar_token:
+        description: 'SONAR_TOKEN org secret'
+        required: true
+      azure_client_id:
+        description: 'AZURE_CLIENT_ID org secret'
+        required: true
+      azure_client_secret:
+        description: 'AZURE_CLIENT_SECRET org secret'
+        required: true
+      azure_tenant_id:
+        description: 'AZURE_TENANT_ID org secret'
+        required: true
+      azure_client_id_prod:
+        description: 'AZURE_CLIENT_ID_PROD org secret'
+        required: true
+      azure_client_secret_prod:
+        description: 'AZURE_CLIENT_SECRET_PROD org secret'
+        required: true
+      azure_tenant_id_prod:
+        description: 'AZURE_TENANT_ID_PROD org secret'
+        required: true
+      catalog_dl_token:
+        description: 'CATALOG_DL_TOKEN org secret'
+        required: true
+
+jobs:
+  build-tests:
+    if: |
+      startsWith(github.ref,'refs/heads/M') != true
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: build-tests-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and Run Tests
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-maven-tests@main
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+      
+      - name: Publish Test Report
+        if: success() || failure()
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-surefire-report@main
+        with:
+          create_check: true
+
+  build-sonar:
+    if: |
+      startsWith(github.ref,'refs/heads/M') != true ||
+      (startsWith(github.ref,'refs/heads/M') == true && contains(fromJson('["main"]'), github.base_ref))
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: build-sonar-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: sonar-build-action
+        id: sonar-build-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          sonar_token: ${{ secrets.sonar_token }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-sonarqube@main
+
+  check-pr-to-release:
+    if: |
+      startsWith(github.ref,'refs/heads/M') == true
+    runs-on: ubuntu-latest
+    outputs:
+      skip_build: ${{ steps.check-pr.outputs.skip_build }}
+    steps:
+      - name: Extract release branch short name
+        id: extract_release_branch
+        shell: bash
+        run: echo "release_branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      - name: Check if release PR exists
+        id: check-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          CURRENT_REF: ${{ steps.extract_release_branch.outputs.release_branch }}
+        run: |
+          echo "Check if there's a PR to the current release branch $CURRENT_REF"
+          prs=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$CURRENT_REF" \
+            --state "closed" \
+            --json title \
+            --jq 'length')
+          if ((prs > 0)); then
+            echo "PR to the current release $CURRENT_REF exists, continue with build..."
+            echo "skip_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "There's no PR to $CURRENT_REF. Most probably the branch just got created. Skipping the workflow..."
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+  build:
+    if: |
+      (startsWith(github.ref,'refs/heads/M') == true && needs.check-pr-to-release.outputs.skip_build == 'false')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [check-pr-to-release]
+    concurrency:
+      group: build
+      cancel-in-progress: false
+    outputs:
+      ver: ${{ steps.run-set-version.outputs.ver }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: run-set-version
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-version@main
+
+      - name: maven-build-action
+        id: maven-build-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          ver: ${{ steps.run-set-version.outputs.ver }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-maven@main
+
+      - name: Publish latest version as PR comment
+        with:
+          comment_body: "The latest version is ${{ steps.run-set-version.outputs.ver }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+      - name: Publish latest version as Annotation
+        run: |
+          echo "::notice::The latest version is ${{ steps.run-set-version.outputs.ver }}"
+
+  deploy-on-qa:
+    if: |
+      startsWith(github.ref,'refs/heads/M') == true
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    environment:
+      name: qa
+    concurrency:
+      group: deploy-on-qa
+      cancel-in-progress: false
+    needs: [build]
+    outputs:
+      ver: ${{ needs.build.outputs.ver }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-qa-action
+        id: helm-deploy-on-qa-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          ver: ${{ needs.build.outputs.ver }}
+          e: q
+          track: ${{ inputs.active_track }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-env@main
+
+  e2e-tests-on-qa:
+    # to onboard e2e tests for the service(s) on qa envs add them here 
+    # and add/update the respective 'Checkout to e2e' below
+    if: |
+      (startsWith(github.ref,'refs/heads/M') == true && contains(github.event.repository.name, 'tsc-catalog') && inputs.e2e_tests == 'true') ||
+      (startsWith(github.ref,'refs/heads/M') == true && contains(github.event.repository.name, 'tsc-price') && inputs.e2e_tests == 'true')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: e2e-tests-qa
+      cancel-in-progress: true
+    needs: [deploy-on-qa]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      # get e2e tests for Price&Catalog services
+      - name: Checkout to e2e
+        if: |
+          (contains(github.event.repository.name, 'tsc-catalog') || contains(github.event.repository.name, 'tsc-price'))
+        uses: actions/checkout@v4
+        with:
+          repository: 'Tractor-Supply-Ecommerce/tsc-catalog-price-e2e-automation'
+          path: 'e2e'
+          token: ${{ secrets.gh_token }}
+
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: e2e-tests-for-qa-action
+        id: e2e-tests-for-qa-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          catalog_dl_token: ${{ secrets.catalog_dl_token }}
+          e: q
+          track: ${{ inputs.active_track }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-e2e-tests@main
+
+      - name: allure-report-qa-action
+        id: allure-report-qa-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          e: q
+          track: ${{ inputs.active_track }}
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-allure-report@main
+
+      - name: Deploy Allure Report for qa to Github Pages
+        if: |
+          steps.allure-report-qa-action.outputs.skip_allure_report != 'true'
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-github-pages@main
+
+      - name: Publish Allure Report URLs for qa as PR comment
+        if: |
+          (steps.allure-report-qa-action.outputs.skip_allure_report != 'true' && join(github.event.pull_request.labels) == '')
+        with:
+          comment_body: "${{ steps.allure-report-qa-action.outputs.allure_url }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+      - name: Publish Allure Report URLs for qa as Annotation
+        if: steps.allure-report-qa-action.outputs.skip_allure_report != 'true'
+        run: |
+          echo "::notice::${{ steps.allure-report-qa-action.outputs.allure_url }}"
+      
+      - name: Publish the deployment report for qa as PR comment if it was skipped or uninstalled
+        if: |
+          (steps.allure-report-qa-action.outputs.skip_allure_report == 'true' && join(github.event.pull_request.labels) == '')
+        with:
+          comment_body: "The deployment on qa has been skipped or service was removed. Please check the deployment logs for details."
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+  deploy-on-uat:
+    if: |
+      startsWith(github.ref,'refs/heads/M') == true
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: deploy-on-uat
+      cancel-in-progress: true
+    needs: [deploy-on-qa]
+    outputs:
+      ver: ${{ needs.deploy-on-qa.outputs.ver }}
+    environment: uat
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-uat-action
+        id: helm-deploy-on-uat-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ needs.deploy-on-qa.outputs.ver }}
+          e: u
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm@main
+
+  e2e-tests-on-uat:
+    # to onboard e2e tests for the service(s) on uat envs add them here 
+    # and add/update the respective 'Checkout to e2e' below
+    if: |
+      (startsWith(github.ref,'refs/heads/M') == true && contains(github.event.repository.name, 'tsc-catalog') && inputs.e2e_tests == 'true') ||
+      (startsWith(github.ref,'refs/heads/M') == true && contains(github.event.repository.name, 'tsc-price') && inputs.e2e_tests == 'true')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: e2e-tests-uat
+      cancel-in-progress: true
+    needs: [deploy-on-uat]
+    environment: uat-e2e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      # get e2e tests for Price&Catalog services
+      - name: Checkout to e2e
+        if: |
+          (contains(github.event.repository.name, 'tsc-catalog') || contains(github.event.repository.name, 'tsc-price'))
+        uses: actions/checkout@v4
+        with:
+          repository: 'Tractor-Supply-Ecommerce/tsc-catalog-price-e2e-automation'
+          path: 'e2e'
+          token: ${{ secrets.gh_token }}
+
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: e2e-tests-for-uat-action
+        id: e2e-tests-for-uat-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          catalog_dl_token: ${{ secrets.catalog_dl_token }}
+          e: u
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-e2e-tests@main
+
+      - name: allure-report-uat-action
+        id: allure-report-uat-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          e: u
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-allure-report@main
+
+      - name: Deploy Allure Report for uat to Github Pages
+        if: steps.allure-report-uat-action.outputs.skip_allure_report != 'true' 
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-github-pages@main
+
+      - name: Publish Allure Report URLs for uat as PR comment
+        if: steps.allure-report-uat-action.outputs.skip_allure_report != 'true' 
+        with:
+          comment_body: "${{ steps.allure-report-uat-action.outputs.allure_url }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+      - name: Publish Allure Report URLs for uat as Annotation
+        if: steps.allure-report-uat-action.outputs.skip_allure_report != 'true'
+        run: |
+          echo "::notice::${{ steps.allure-report-uat-action.outputs.allure_url }}"
+
+      - name: Publish the deployment report for uat as PR comment if it was skipped or uninstalled
+        if: steps.allure-report-uat-action.outputs.skip_allure_report == 'true' 
+        with:
+          comment_body: "The deployment on uat has been skipped or service was removed. Please check the deployment logs for details."
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+  deploy-on-perf:
+    if: |
+      startsWith(github.ref,'refs/heads/M') == true
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: deploy-on-perf
+      cancel-in-progress: true
+    needs: [deploy-on-uat]
+    outputs:
+      ver: ${{ needs.deploy-on-uat.outputs.ver }}
+    environment: perf
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: helm-deploy-on-perf-action
+        id: helm-deploy-on-perf-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ needs.deploy-on-uat.outputs.ver }}
+          e: p
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm@main
+
+  e2e-tests-on-perf:
+    # to onboard e2e tests for the service(s) on perf envs add them here 
+    # and add/update the respective 'Checkout to e2e' below
+    if: |
+      (startsWith(github.ref,'refs/heads/M') == true && contains(github.event.repository.name, 'tsc-catalog') && inputs.e2e_tests == 'true') ||
+      (startsWith(github.ref,'refs/heads/M') == true && contains(github.event.repository.name, 'tsc-price') && inputs.e2e_tests == 'true')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    concurrency:
+      group: e2e-tests-perf
+      cancel-in-progress: true
+    needs: [deploy-on-perf]
+    environment: perf-e2e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      # get e2e tests for Price&Catalog services
+      - name: Checkout to e2e
+        if: |
+          (contains(github.event.repository.name, 'tsc-catalog') || contains(github.event.repository.name, 'tsc-price'))
+        uses: actions/checkout@v4
+        with:
+          repository: 'Tractor-Supply-Ecommerce/tsc-catalog-price-e2e-automation'
+          path: 'e2e'
+          token: ${{ secrets.gh_token }}
+
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: e2e-tests-for-perf-action
+        id: e2e-tests-for-perf-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          catalog_dl_token: ${{ secrets.catalog_dl_token }}
+          e: p
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-e2e-tests@main
+
+      - name: allure-report-perf-action
+        id: allure-report-perf-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          e: p
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-allure-report@main
+
+      - name: Deploy Allure Report for perf to Github Pages
+        if: steps.allure-report-perf-action.outputs.skip_allure_report != 'true' 
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-github-pages@main
+
+      - name: Publish Allure Report URLs for perf as PR comment
+        if: steps.allure-report-perf-action.outputs.skip_allure_report != 'true' 
+        with:
+          comment_body: "${{ steps.allure-report-perf-action.outputs.allure_url }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+      - name: Publish Allure Report URLs for perf as Annotation
+        if: steps.allure-report-perf-action.outputs.skip_allure_report != 'true'
+        run: |
+          echo "::notice::${{ steps.allure-report-perf-action.outputs.allure_url }}"
+
+      - name: Publish the deployment report for perf as PR comment if it was skipped or uninstalled
+        if: steps.allure-report-perf-action.outputs.skip_allure_report == 'true' 
+        with:
+          comment_body: "The deployment on perf has been skipped or service was removed. Please check the deployment logs for details."
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main

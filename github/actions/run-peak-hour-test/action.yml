@@ -1,0 +1,39 @@
+name: Run Peak-Hour Tests
+description: GitHub Action for Peak-Hour Tests
+
+inputs:
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  sonar_token:
+    description: 'SONAR_TOKEN org secret'
+    type: string
+  test:
+    type: string
+  profile:
+    type: profile
+  env:
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build and run tests
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        ENV: ${{ inputs.env }}
+        TEST: ${{ inputs.test }}
+        PROFILE: ${{ inputs.profile }}
+      shell: bash
+      run: |
+        echo "[DEBUG] update mvn settings.xml"
+        mkdir -p ~/.m2
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ~/.m2/settings.xml
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ./settings.xml
+        echo "[DEBUG] Executing mvn clean test -P $PROFILE -Denv=$ENV"
+        mvn -s settings.xml clean test -P $PROFILE -Denv=$ENV
+        mv allure-results ${GITHUB_WORKSPACE}/allure-results-folder-for-$ENV

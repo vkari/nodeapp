@@ -1,0 +1,187 @@
+name: Reusable TSC CI/CD Workflow
+
+on:
+  workflow_call:
+    inputs:
+      appType:
+        type: string
+        required: false
+      publishGit:
+        type: boolean
+        required: false
+        default: false
+      autoDeploy:
+        type: boolean
+        required: false
+        default: true
+      enableSonar:
+        type: boolean
+        required: false
+        default: true
+      enableRegression:
+        type: boolean
+        required: false
+        default: true
+      environment:
+        type: string
+        required: false
+      mavenArgs:
+        type: string
+        required: false
+      mavenVersion:
+        type: string
+        required: false
+        default: '3.9.6'
+      javaVersion:
+        type: string
+        required: false
+        default: '21'
+    secrets:
+      GH_USER:
+        required: false
+      GH_TOKEN:
+        required: false
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
+        required: false
+      ACR_NONPROD:
+        required: false
+      ACR_USERNAME_NONPROD:
+        required: false
+      ACR_PASSWORD_NONPROD:
+        required: false
+      ACR_USERNAME_PROD:
+        required: false
+      ACR_PASSWORD_PROD:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        required: false
+      DOCKER_USER:
+        required: false
+      DOCKER_PASS:
+        required: false
+      KUBE_CONFIG:
+        required: false
+      AZURE_VAULT_TOKEN:
+        required: false
+      CLIENT_ID:
+        required: false
+      CLIENT_SECRET:
+        required: false
+      TENANT_ID:
+        required: false
+      SOURCE_KV_URL_NONPROD:
+        required: false
+
+
+permissions:
+  id-token: write
+  contents: read
+  deployments: write
+  pull-requests: write
+  statuses: write
+  pages: write
+  packages: write
+
+jobs:
+  ci:
+    name: 🍀 Build, Test & Publish
+    runs-on: self-hosted
+    outputs:
+      docker_tag: ${{ steps.set-tag.outputs.docker_tag }}
+      deploy_envs_json: ${{ steps.trusted.outputs.deployEnvsJson }}
+      auto_deploy: ${{ steps.trusted.outputs.autoDeploy }}
+    steps:
+      - name: 📦 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🧠 Load Dynamic Config
+        id: trusted
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/trusted-config@main
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          secrets_json: ${{ toJson(secrets) }}
+
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.trusted.outputs.javaVersion }}
+
+      - name: 🔖 Set Docker Tag
+        id: set-tag
+        run: |
+          formatted_branch="${GITHUB_REF_NAME//\//.}"
+          tag="${formatted_branch}.${GITHUB_RUN_NUMBER}"
+          echo "docker_tag=$tag" >> $GITHUB_OUTPUT
+          echo "DOCKER_TAG=$tag" >> $GITHUB_ENV
+
+      - name: ⚙️ Maven Build
+        if: ${{ steps.trusted.outputs.appType == 'maven' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/maven-build@main
+        with:
+          java-version: ${{ steps.trusted.outputs.javaVersion }}
+          maven-version: ${{ steps.trusted.outputs.mavenVersion }}
+          maven-args: ${{ steps.trusted.outputs.mavenArgs }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        env:
+          GH_USER: ${{ secrets.GH_USER }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: ⚛️ Node Build
+        if: ${{ steps.trusted.outputs.appType == 'nodejs' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/react-build@main
+        with:
+          publishGit: ${{ inputs.publishGit }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          SOURCE_KV_URL: ${{ secrets.SOURCE_KV_URL_NONPROD }}
+          CLIENT_ID: ${{ secrets.AZURE_VAULT_CLIENT_ID_NONPROD }}
+          CLIENT_SECRET: ${{ secrets.AZURE_VAULT_CLIENT_SECRET_NONPROD }}
+          TENANT_ID: ${{ secrets.AZURE_VAULT_TENANT_ID }}
+        env:
+          NODE_VERSION: ${{ steps.trusted.outputs.nodeVersion }}
+          nodeInstallArgs: ${{ steps.trusted.outputs.nodeInstallArgs }}
+          nodeBuildArgs: ${{ steps.trusted.outputs.nodeBuildArgs }}
+          nodeTestArgs: ${{ steps.trusted.outputs.nodeTestArgs }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_USER: ${{ secrets.GH_USER }}
+          SOURCE_KV_URL: ${{ secrets.SOURCE_KV_URL_NONPROD }}
+          CLIENT_ID: ${{ secrets.AZURE_VAULT_CLIENT_ID_NONPROD }}
+          CLIENT_SECRET: ${{ secrets.AZURE_VAULT_CLIENT_SECRET_NONPROD }}
+          TENANT_ID: ${{ secrets.AZURE_VAULT_TENANT_ID }}
+          NEXT_AEM: ${{ steps.trusted.outputs.aemEnv }}
+
+      - name: 🧪 Sonar Scan
+        if: ${{ steps.trusted.outputs.enableSonar == 'true' && steps.trusted.outputs.sonarProjectName != '' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/sonar-scan@main
+        with:
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
+          sonar_host_url: ${{ vars.SONAR_HOST_URL }}
+          sonar_project_key: ${{ steps.trusted.outputs.sonarProjectName }}
+          sonar_project_name: ${{ steps.trusted.outputs.sonarProjectName }}
+
+      - name: 🗑️ Clean Actions caches
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            await github.request('DELETE /repos/{owner}/{repo}/actions/caches', {
+              owner,
+              repo
+            });

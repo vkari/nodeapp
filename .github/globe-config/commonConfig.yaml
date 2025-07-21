@@ -1,0 +1,55 @@
+app:
+  maven:
+    cd: true
+    enabled: false
+    appType: maven
+    mavenVersion: "3.9.11"
+    javaVersion: "21"
+    mavenArgs: clean install package -Dserver.GH_USER=${GH_USER} -Dserver.GH_TOKEN=${GH_TOKEN} -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -s settings.xml
+deploy:
+  manualApproval:
+    nonprod: true
+    prod: true
+  node:
+    cd: true
+    enabled: false
+    appType: nodejs
+    nodeVersion: "18.20.4"
+    nodeInstallArgs: pnpm install --prefer-offline --frozen-lockfile
+    nodeBuildArgs: pnpm run build
+    nodeTestArgs: pnpm run test -- --watchAll=false --ci
+
+  sonar:
+    enabled: true
+    sonarOrg: tractor-supply-ecommerce
+    sonarProjectName: default-project-name
+
+acr:
+  prod: tsccrecmp01
+  nonprod: tsccrecmnp01
+
+secrets:
+  ACR_NONPROD: ${{ secrets.ACR_NONPROD }}
+  ACR_USERNAME_NONPROD: ${{ secrets.ACR_USERNAME_NONPROD }}
+  ACR_PASSWORD_NONPROD: ${{ secrets.ACR_PASSWORD_NONPROD }}
+  ACR_USERNAME_PROD: ${{ secrets.ACR_USERNAME_PROD }}
+  ACR_PASSWORD_PROD: ${{ secrets.ACR_PASSWORD_PROD }}
+  GH_USER: ${{ secrets.GH_USER }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+  AZURE_VAULT_TOKEN: ${{ secrets.AZURE_VAULT_TOKEN }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+features:
+  akamaiCacheClear: false
+  redisCacheClear: false
+  scanning: false
+
+environment: ${{ needs.Reusable-Workflow.outputs.environment }}

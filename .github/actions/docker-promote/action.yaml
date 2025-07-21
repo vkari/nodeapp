@@ -1,0 +1,126 @@
+name: Docker Promote
+
+# Composite action to promote a Docker image from the non-prod ACR to the prod ACR
+# Relies on credentials provided via inputs or environment variables.
+
+inputs:
+  acr_name:
+    required: true
+  acr_username_nonprod:
+    required: false
+  acr_password_nonprod:
+    required: false
+  acr_username_prod:
+    required: false
+  acr_password_prod:
+    required: false
+  environment:
+    required: false
+  image_repo:
+    required: true
+  image_path:
+    required: true
+  docker_tag:
+    required: true
+
+outputs:
+  docker_tag:
+    description: "Docker image tag used"
+    value: ${{ steps.set-tag.outputs.docker_tag }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: 📝 Resolve Inputs
+      id: vars
+      shell: bash
+      run: |
+        set -e
+        SRC_REG="${{ inputs.acr_nonprod }}"
+        if [ -z "$SRC_REG" ]; then
+          SRC_REG="$ACR_NONPROD"
+        fi
+        if [ -z "$SRC_REG" ]; then
+          echo "❌ Source ACR not provided" >&2
+          exit 1
+        fi
+        SRC_REG="$SRC_REG.azurecr.io"
+        echo "SRC_REG=$SRC_REG" >> $GITHUB_OUTPUT
+
+        DEST_REG="${{ inputs.image_repo }}"
+        if [ -z "$DEST_REG" ]; then
+          DEST_REG="$AZURE_CONTAINER_REGISTRY"
+        fi
+        if [ -z "$DEST_REG" ]; then
+          echo "❌ Target ACR not provided" >&2
+          exit 1
+        fi
+        echo "DEST_REG=$DEST_REG" >> $GITHUB_OUTPUT
+
+        IMG_PATH="${{ inputs.image_path }}"
+        if [ -z "$IMG_PATH" ]; then
+          IMG_PATH="$REPO_NAME"
+        fi
+        echo "IMG_PATH=$IMG_PATH" >> $GITHUB_OUTPUT
+
+        TAG="${{ inputs.docker_tag }}"
+        if [ -z "$TAG" ]; then
+          TAG="$DOCKER_TAG"
+        fi
+        if [ -z "$TAG" ]; then
+          echo "❌ Docker tag not provided" >&2
+          exit 1
+        fi
+        echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+    - name: 🔐 Login to non-prod ACR
+      shell: bash
+      run: |
+        set -e
+        echo "🔐 Logging in to ACR..."
+        echo "AZURE_CONTAINER_REGISTRY: ${{ env.AZURE_CONTAINER_REGISTRY }}"
+        echo "🔐 Target registry: ${{ inputs.image_repo }}"
+        if [ -n "${{ inputs.acr_username_nonprod }}" ] && [ -n "${{ inputs.acr_password_nonprod }}" ]; then
+          echo "🔐 Using non-prod credentials"
+          echo "${{ inputs.acr_password_nonprod }}" | docker login ${{ inputs.image_repo }} -u "${{ inputs.acr_username_nonprod }}" --password-stdin
+        else
+          echo "🔐 Using Azure CLI: az acr login --name ${{ inputs.acr_name }}"
+          az acr login --name ${{ inputs.acr_name }}
+        fi
+    
+
+    - name: 📦 Pull Image from Non-Prod
+      shell: bash
+      run: |
+        set -e
+        SRC_REG="${{ steps.vars.outputs.SRC_REG }}"
+        IMG="${SRC_REG}/${{ steps.vars.outputs.IMG_PATH }}:${{ steps.vars.outputs.TAG }}"
+        docker pull "$IMG"
+
+    - name: 🏷️ Tag Image for Prod
+      shell: bash
+      run: |
+        set -e
+        SRC_REG="${{ steps.vars.outputs.SRC_REG }}"
+        DEST_REG="${{ steps.vars.outputs.DEST_REG }}"
+        IMG_PATH="${{ steps.vars.outputs.IMG_PATH }}"
+        TAG="${{ steps.vars.outputs.TAG }}"
+        docker tag "$SRC_REG/$IMG_PATH:$TAG" "$DEST_REG/$IMG_PATH:$TAG"
+    - name: 🔐 Login to prod ACR
+      shell: bash
+      run: |
+        set -e
+        DEST_REG="${{ steps.vars.outputs.DEST_REG }}"
+        if [[ "$ENV_NAME" == prod* ]] && [ -n "${{ inputs.acr_username_prod }}" ] && [ -n "${{ inputs.acr_password_prod }}" ]; then
+          echo "🔐 Using production credentials"
+          echo "${{ inputs.acr_password_prod }}" | docker login ${{ inputs.image_repo }} -u "${{ inputs.acr_username_prod }}" --password-stdin
+        else
+          az acr login --name "${DEST_REG%%.azurecr.io}"
+        fi
+
+    - name: 🚀 Push Image to Prod
+      shell: bash
+      run: |
+        set -e
+        DEST_REG="${{ steps.vars.outputs.DEST_REG }}"
+        docker push "$DEST_REG/${{ steps.vars.outputs.IMG_PATH }}:${{ steps.vars.outputs.TAG }}"

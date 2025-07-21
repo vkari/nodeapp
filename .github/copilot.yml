@@ -1,0 +1,5 @@
+# Configuration for GitHub Copilot pull request features
+version: 1
+pull_request:
+  review: true
+  summary: true

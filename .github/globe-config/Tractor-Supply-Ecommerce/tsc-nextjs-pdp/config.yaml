@@ -1,0 +1,132 @@
+app:
+  node:
+    cd: true
+    enabled: true
+    buildDeploy: true
+    appType: nodejs
+    nodeVersion: "20.19.2"
+    publishGit: false
+    nodeInstallArgs: pnpm install --prefer-offline --no-frozen-lockfile && pnpm install --lockfile-only
+    nodeBuildArgs: pnpm run build
+    nodeTestArgs: pnpm test:coverage
+  sonar:
+    enabled: false
+    sonarProjectName: tsc-nextjs-pdp
+    skipQualityGate: R2025.PDP.13.00
+
+acr:
+  prod: tsccrecmp01
+  nonprod: tsccrecmnp01
+
+enableRegression:
+  enabled: true
+  jdk_version: openjdk17
+  d2:
+    mavenGoal: clean test -Denv=d2
+  q2:
+    mavenGoal: clean test -Denv=q2
+  q1:
+    mavenGoal: clean test -Denv=q1
+  q3:
+    mavenGoal: clean test -Denv=q3
+deploy:
+  manualApproval:
+    nonprod: ture
+    prod: true
+  default_environments: d2
+  dryrun: false
+  verbose: false
+  autoDeployBranches:
+    develop:
+      env:
+        - d1
+      autoDeploy: true
+    R2025.PDP.15.00:
+      env:
+        - q3
+      autoDeploy: true
+    R2025.PDP.14.00:
+      env:
+        - q1
+      autoDeploy: true
+  spaces:
+    d1:
+      port: 3000
+      namespace: ecom-react-d1
+      host: bqs-d1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e129107
+    d2:
+      port: 3000
+      namespace: ecom-react-d2
+      host: bqs-d2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e202004
+    d3:
+      port: 3000
+      namespace: ecom-react-d3
+      host: bqs-d3.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e253452
+    q1:
+      port: 3000
+      namespace: ecom-react-q1
+      host: bqs-q1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e129107
+    q2:
+      port: 3000
+      namespace: ecom-react-q2
+      host: bqs-q2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e713253
+    q3:
+      port: 3000
+      namespace: ecom-react-q3
+      host: bqs-q3.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e253452
+    u1a:
+      port: 3000
+      namespace: ecom-react-u1a
+      host: bqs-u1a.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e221276
+    u1b:
+      port: 3000
+      namespace: ecom-react-u1b
+      host: bqs-u1b.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e221276
+    p1:
+      port: 3000
+      namespace: ecom-react-p1
+      host: bqs-p1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e143152
+  production:
+    default_environments: prodb
+    spaces:
+      proda:
+        port: 3000
+        namespace: ecom-react-proda
+        host: bqs-proda.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+        aem_env: p34468-e143101
+      prodb:
+        port: 3000
+        namespace: ecom-react-prodb
+        host: bqs-prodb.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+        aem_env: p34468-e143101
+      prod:
+        port: 3000
+        namespace: ecom-react-prod
+        host: bqs-prod.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-centralus-01
+        aem_env: p34468-e143101
+
+features:
+  akamaiCacheClear: false
+  redisCacheClear: false
+  scanning: false

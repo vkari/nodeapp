@@ -1,0 +1,376 @@
+name: manual_deploy
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        description: Environment
+        type: string
+        required: true
+      tag:
+        description: 'Release tag'
+        type: string
+        required: true
+      azure_acr_name:
+        description: "Non-prod ACR name"
+        type: string
+        default: 'tsccrecmnp01'
+      azure_acr_name_prod:
+        description: "Prod ACR name"
+        type: string
+        default: 'tsccrecmp01'
+      azure_acr_name_prod_central:
+        description: "Prod ACR name"
+        type: string
+        default: 'tsccrecmp01'
+      kube_context:
+        description: "Non-prod AKS context"
+        type: string
+        default: 'aks-wcs-n-eastus2-01'
+      kube_context_prod:
+        description: "Prod AKS context"
+        type: string
+        default: 'aks-wcs-p-eastus2-01'
+      kube_context_prod_central:
+        description: "Prod AKS context"
+        type: string
+        default: 'aks-wcs-p-centralus-01'
+      rg:
+        description: "Non-prod RG"
+        type: string
+        default: 'rg-wcs-nonprod-eastus2'
+      rg_prod:
+        description: "Prod RG"
+        type: string
+        default: 'rg-wcs-prod-eastus2'
+      rg_prod_central:
+        description: "Prod RG"
+        type: string
+        default: 'rg-wcs-prod-centralus'
+    secrets:
+      gh_user:
+        description: 'GH_USER org secret'
+        required: true
+      gh_token:
+        description: 'GH_TOKEN org secret'
+        required: true
+      sonar_token:
+        description: 'SONAR_TOKEN org secret'
+        required: true
+      azure_client_id:
+        description: 'AZURE_CLIENT_ID org secret'
+        required: true
+      azure_client_secret:
+        description: 'AZURE_CLIENT_SECRET org secret'
+        required: true
+      azure_tenant_id:
+        description: 'AZURE_TENANT_ID org secret'
+        required: true
+      azure_client_id_prod:
+        description: 'AZURE_CLIENT_ID_PROD org secret'
+        required: true
+      azure_client_secret_prod:
+        description: 'AZURE_CLIENT_SECRET_PROD org secret'
+        required: true
+      azure_tenant_id_prod:
+        description: 'AZURE_TENANT_ID_PROD org secret'
+        required: true
+      catalog_dl_token:
+        description: 'CATALOG_DL_TOKEN org secret'
+        required: true
+
+jobs:
+  annotation-manual-deploy:
+    if: |
+      (inputs.env == 'd1' || inputs.env == 'd2' || inputs.env == 'd3') ||
+      (inputs.env == 'q1' || inputs.env == 'q2' || inputs.env == 'q3') ||
+      (inputs.env == 'u1a' || inputs.env == 'u1b' || inputs.env == 'u2a' || inputs.env == 'u2b') ||
+      (inputs.env == 'p1' || inputs.env == 'p2') ||
+      (inputs.env == 'proda') ||
+      (inputs.env == 'prodb') ||
+      (inputs.env == 'prod')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Annotation with tag and env to approve
+        run: |
+          echo "::notice::Deploy tag ${{ github.event.inputs.tag }} on ${{ github.event.inputs.env }}"
+
+  approve-manual-deploy:
+    if: |
+      (inputs.env == 'u1a' || inputs.env == 'u1b' || inputs.env == 'u2a' || inputs.env == 'u2b') ||
+      (inputs.env == 'p1' || inputs.env == 'p2') ||
+      (inputs.env == 'proda') ||
+      (inputs.env == 'prodb') ||
+      (inputs.env == 'prod')
+    runs-on: ubuntu-latest
+    name: "Approve. See annotation"
+    needs: [annotation-manual-deploy]
+    environment: manual-deploy
+    steps:
+      - name: Approved
+        run: |
+          echo "Manual deployment of the ${{ inputs.tag }} on ${{ inputs.env }} is approved"
+          exit 0
+
+  deploy-on-dev:
+    if: (inputs.env == 'd1' || inputs.env == 'd2' || inputs.env == 'd3')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [annotation-manual-deploy]
+    concurrency:
+      group: deploy-on-dev
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: helm-deploy-on-dev-action
+        id: helm-deploy-on-dev-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main
+
+  deploy-on-qa:
+    if: (inputs.env == 'q1' || inputs.env == 'q2' || inputs.env == 'q3')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [annotation-manual-deploy]
+    concurrency:
+      group: deploy-on-qa
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-qa-action
+        id: helm-deploy-on-qa-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main
+
+  deploy-on-uat:
+    if: (inputs.env == 'u1a' || inputs.env == 'u1b' || inputs.env == 'u2a' || inputs.env == 'u2b')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [approve-manual-deploy]
+    concurrency:
+      group: deploy-on-uat
+      cancel-in-progress: false
+    environment: uat
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-uat-action
+        id: helm-deploy-on-uat-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main
+
+  deploy-on-perf:
+    if: (inputs.env == 'p1' || inputs.env == 'p2')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [approve-manual-deploy]
+    concurrency:
+      group: deploy-on-perf
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-perf-action
+        id: helm-deploy-on-perf-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main
+
+  deploy-on-proda:
+    if: (inputs.env == 'proda')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [approve-manual-deploy]
+    concurrency:
+      group: deploy-on-proda
+      cancel-in-progress: false
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-prod-action
+        id: helm-deploy-on-prod-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main
+
+  deploy-on-prodb:
+    if: (inputs.env == 'prodb')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [approve-manual-deploy]
+    concurrency:
+      group: deploy-on-prodb
+      cancel-in-progress: false
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-prod-action
+        id: helm-deploy-on-prod-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod }}
+          kube_context_prod: ${{ inputs.kube_context_prod }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main
+
+  deploy-on-prod:
+    if: (inputs.env == 'prod')
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    needs: [approve-manual-deploy]
+    concurrency:
+      group: deploy-on-prod
+      cancel-in-progress: false
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: helm-deploy-on-prod-action
+        id: helm-deploy-on-prod-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          rg: ${{ inputs.rg }}
+          azure_acr_name: ${{ inputs.azure_acr_name }}
+          kube_context: ${{ inputs.kube_context }}
+          azure_client_id_prod: ${{ secrets.azure_client_id_prod }}
+          azure_client_secret_prod: ${{ secrets.azure_client_secret_prod }}
+          azure_tenant_id_prod: ${{ secrets.azure_tenant_id_prod }}
+          rg_prod: ${{ inputs.rg_prod_central }}
+          azure_acr_name_prod: ${{ inputs.azure_acr_name_prod_central }}
+          kube_context_prod: ${{ inputs.kube_context_prod_central }}
+          ver: ${{ inputs.tag }}
+          e: ${{ inputs.env }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-helm-manual-project@main

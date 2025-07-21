@@ -1,0 +1,43 @@
+FROM alpine:3.22.0
+
+# Install system dependencies
+RUN apk add --no-cache --update \
+  bind-tools \
+  net-tools \
+  curl \
+  ca-certificates \
+  lsb-release-minimal \
+  docker \
+  openrc \
+  helm \
+  zip \
+  bash \
+  rsync \
+  git \
+  jq
+
+# Download cli tools
+RUN curl -fsSLO https://github.com/Azure/kubelogin/releases/download/v0.1.5/kubelogin-linux-amd64.zip
+
+# Install cli tools
+RUN unzip -ojd /usr/local/bin kubelogin-linux-amd64.zip bin/linux_amd64/kubelogin \
+  && chmod +x /usr/local/bin/kubelogin
+
+# Clean up unnecessary build tools
+RUN apk del \
+  gcc \
+  musl-dev \
+  python3-dev \
+  libffi-dev \
+  openssl-dev \
+  cargo \
+  make \
+  zip \
+  && rm -rf /var/cache/apk/* \
+  && rm -rf *.zip || true \
+  && rm -rf *.tgz || true
+
+# Update PATH to include the virtual environment
+ENV PATH="/usr/local/bin:$PATH"
+
+CMD ["sh"]

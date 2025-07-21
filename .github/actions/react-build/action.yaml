@@ -1,0 +1,259 @@
+name: React Build
+
+description: Build React apps with optional Git publish flow
+
+inputs:
+  publishGit:
+    description: 'Whether to publish git changes'
+    required: false
+    default: 'false'
+  app_type:
+    required: false
+    default: react
+  azure_client_id:
+    required: true
+  azure_client_secret:
+    required: true
+  azure_tenant_id:
+    required: true
+  azure_subscription_id:
+    required: true
+  SOURCE_KV_URL:
+    description: 'Source Key Vault URL'
+    required: true
+  CLIENT_ID:
+    description: 'Client ID for Key Vault access'
+    required: true
+  CLIENT_SECRET:
+    description: 'Client Secret for Key Vault access'
+    required: true
+  TENANT_ID:
+    description: 'Tenant ID for Key Vault access'
+    required: true
+  enable_key_vault:
+    description: 'Load secrets from Azure Key Vault'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - name: 🧚️ Set Env Vars
+      shell: bash
+      run: |
+        echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+        echo "APP_TYPE=${{ inputs.app_type }}" >> $GITHUB_ENV
+        echo "PUBLISH_GIT=${{ inputs.publishGit }}" >> $GITHUB_ENV
+        echo "NODE_VERSION=${{ inputs.node_version }}" >> $GITHUB_ENV
+        echo "NEXT_AEM=${NEXT_AEM}" >> $GITHUB_ENV
+        echo "ENABLE_KEY_VAULT=${{ inputs.enable_key_vault }}" >> $GITHUB_ENV
+        echo "SOURCE_KV_URL=${{ inputs.SOURCE_KV_URL }}" >> $GITHUB_ENV
+        echo "CLIENT_ID=${{ inputs.CLIENT_ID }}" >> $GITHUB_ENV
+        echo "CLIENT_SECRET=${{ inputs.CLIENT_SECRET }}" >> $GITHUB_ENV
+        echo "TENANT_ID=${{ inputs.TENANT_ID }}" >> $GITHUB_ENV
+        echo "AZURE_CLIENT_ID=${{ inputs.azure_client_id }}" >> $GITHUB_ENV
+        echo "AZURE_CLIENT_SECRET=${{ inputs.azure_client_secret }}" >> $GITHUB_ENV
+        echo "AZURE_TENANT_ID=${{ inputs.azure_tenant_id }}" >> $GITHUB_ENV
+        echo "AZURE_SUBSCRIPTION_ID=${{ inputs.azure_subscription_id }}" >> $GITHUB_ENV
+        echo "NODE_INSTALL_ARGS=${{ inputs.node_install_args }}" >> $GITHUB_ENV
+        echo "NODE_BUILD_ARGS=${{ inputs.node_build_args }}" >> $GITHUB_ENV
+        echo "NODE_TEST_ARGS=${{ inputs.node_test_args }}" >> $GITHUB_ENV
+    - name: 🚮 Configure Node Memory
+      shell: bash
+      run: |
+        echo "NODE_OPTIONS=--max_old_space_size=4096 --expose-gc" >> $GITHUB_ENV
+
+    - name: 🎞️ Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🛠️ Install Azure CLI
+      shell: bash
+      run: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+    - name: ⚙️ Install kubectl (Local Path)
+      shell: bash
+      run: |
+        mkdir -p $HOME/.local/bin
+        curl -Lo $HOME/.local/bin/kubectl https://dl.k8s.io/release/v1.32.3/bin/linux/amd64/kubectl
+        chmod +x $HOME/.local/bin/kubectl
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    - name: ☁️ Azure Login
+      uses: azure/login@v1
+      with:
+        creds: |
+          {
+            "subscriptionId": "${{ inputs.azure_subscription_id }}",
+            "clientId": "${{ inputs.azure_client_id }}",
+            "clientSecret": "${{ inputs.azure_client_secret }}",
+            "tenantId": "${{ inputs.azure_tenant_id }}"
+          }
+    - name: 🔑 Load Key Vault secrets
+      if: ${{ inputs.enable_key_vault == 'true' && steps.trusted.outputs.appType == 'nodejs' && steps.trusted.outputs.buildDeploy != 'true' }}
+      shell: bash
+      run: |
+        echo "Azure CLI login successful"
+        az account show
+        echo "Fetching secrets for $REPO_NAME using env $NEXT_ENV"
+        ls -lrt "$GITHUB_WORKSPACE"
+        ls -lart variable.txt || true
+        source "${{ github.action_path }}/utils/key-vault.sh" "$REPO_NAME" "$NEXT_ENV"
+        if [ -f "$GITHUB_WORKSPACE/variable.txt" ]; then
+            echo "✅ variable.txt found. Proceeding with secret export..."
+            pattern=$(paste -sd '|' "$GITHUB_WORKSPACE/variable.txt" | tr '-' '_')
+            env | grep -E "$pattern" >> "$GITHUB_ENV"
+        else
+            echo "❌ variable.txt not found in workspace. Skipping secret export step."
+            exit 1
+        fi
+      env:
+        AZURE_CLIENT_ID: ${{ inputs.azure_client_id }}
+        AZURE_CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        AZURE_SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        SOURCE_KV_URL: ${{ inputs.SOURCE_KV_URL }}
+        CLIENT_ID: ${{ inputs.CLIENT_ID }}
+        CLIENT_SECRET: ${{ inputs.CLIENT_SECRET }}
+        TENANT_ID: ${{ inputs.TENANT_ID }}
+
+    - name: Set up Node.js and pnpm
+      shell: bash
+      run: |
+        NODE_VERSION="${NODE_VERSION:-${nodeVersion:-20.12.0}}"
+        echo "Installing Node.js version: $NODE_VERSION"
+        mkdir -p "$GITHUB_WORKSPACE/.tools/nodejs"
+        curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" -o node.tar.xz
+        tar -xJf node.tar.xz -C "$GITHUB_WORKSPACE/.tools/nodejs" --strip-components=1
+        rm node.tar.xz
+        echo "$GITHUB_WORKSPACE/.tools/nodejs/bin" >> $GITHUB_PATH
+        echo "NODE_HOME=$GITHUB_WORKSPACE/.tools/nodejs" >> $GITHUB_ENV
+        export PATH="$GITHUB_WORKSPACE/.tools/nodejs/bin:$PATH"
+
+        echo "Installing pnpm..."
+        "$GITHUB_WORKSPACE/.tools/nodejs/bin/npm" install -g pnpm
+
+        echo "Restoring pnpm cache manually (if available)"
+        CACHE_KEY="pnpm-cache-${{ hashFiles('pnpm-lock.yaml') }}"
+        echo "🔑 pnpm cache key: $CACHE_KEY"
+
+    - name: Install pnpm
+      shell: bash
+      run: |
+        set -x
+        echo "Installing pnpm..."
+        "$GITHUB_WORKSPACE/.tools/nodejs/bin/npm" install -g pnpm
+        echo "✅ pnpm installed at:"
+        which pnpm || true
+        echo "🔧 pnpm version:"
+        "$GITHUB_WORKSPACE/.tools/nodejs/bin/pnpm" -v
+        echo "$GITHUB_WORKSPACE/.tools/nodejs/bin" >> $GITHUB_PATH
+
+    - name: Set npmrc
+      shell: bash
+      run: |
+        echo "@tractor-supply-ecommerce:registry=https://npm.pkg.github.com/" >> ~/.npmrc
+        echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
+        echo "strict-ssl=false" >> ~/.npmrc
+        npm set strict-ssl false
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        echo "📦 Installing dependencies"
+        pnpm config set auto-install-peers true
+        pnpm config set enable-pre-post-scripts true
+        cmd="${nodeInstallArgs:-pnpm install --frozen-lockfile}"
+        echo "Running: $cmd"
+        eval "$cmd"
+        pnpm audit || echo "⚠️ pnpm audit reported issues, but continuing..."
+
+    - name: Build React App
+      shell: bash
+      run: |
+        cmd="${nodeBuildArgs:-pnpm run build}"
+        echo "🚧 Building React app with: $cmd"
+        eval "$cmd"
+
+    - name: Run tests
+      shell: bash
+      # continue-on-error: true
+      run: |
+        if [ -n "${nodeTestArgs}" ]; then
+          echo "🧪 Running tests with: $nodeTestArgs"
+          eval "$nodeTestArgs"
+        else
+          echo "⚠️ No test command provided; skipping tests"
+        fi
+    - name: 🚮 Force Node garbage collection
+      shell: bash
+      run: |
+        node --expose-gc -e "if (global.gc) { console.log('Running garbage collection'); global.gc(); } else { console.log('Garbage collection not exposed'); }"
+
+
+    - name: Semantic Release
+      if: ${{ inputs.publishGit == 'true' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ env.GH_TOKEN }}
+      run: |
+        echo "📦 Publishing with semantic-release"
+        pnpm exec semantic-release || {
+          echo "❌ Semantic release failed"
+          exit 1
+        }
+        echo "✅ Semantic release completed successfully"
+
+    - name: ⚛️ Prepare Next.js artifact
+      if: github.event_name != 'pull_request'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p app
+        echo "📁 Listing all files before copy:"
+        ls -lart ** || true
+        
+        echo "📦 Copying build artifacts..."
+        cp -r .next app/
+        cp -r node_modules app/
+        cp -vr package.json app/
+        cp -vr pnpm-lock.yaml app/
+        cp -vr next.config.js app/
+        cp -r public app/
+        
+        if [ -d workers ]; then
+          echo "📁 Copying workers folder"
+          cp -r workers app/
+        fi
+        
+        if [ -d config ]; then
+          echo "📁 Copying config folder"
+          cp -vr config app/
+        fi
+        
+        cp -vr .env.production app/
+        cp "${{ github.action_path }}/utils/key-vault.sh" app/
+        if [ -d logs ]; then
+          echo "📁 Copying logs folder"
+          cp -vr logs app/
+        fi
+        
+        if [ -f variable.txt ]; then
+          echo "📄 Copying variable.txt"
+          cp -v variable.txt app/
+        fi
+        
+        echo "✅ Final contents of app/ directory:"
+        ls -lart app/**
+        
+    
+
+#    - name: 📤 Upload built app folder
+#      if: github.event_name != 'pull_request'
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: app
+#        path: app/
+#        include-hidden-files: true
+#        compression-level: 3
+#        if-no-files-found: error
+

@@ -1,0 +1,40 @@
+name: Run Validation Tests
+description: GitHub Action for Validation Tests
+
+inputs:
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  sonar_token:
+    description: 'SONAR_TOKEN org secret'
+    type: string
+  groups:
+    type: string
+  env:
+    type: string
+  catalog_dl_token:
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build and run tests
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        ENV: ${{ inputs.env }}
+        GROUPS: ${{ inputs.groups }}
+        DL_TOKEN: ${{ inputs.catalog_dl_token }}
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ~/.m2/settings.xml
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ./settings.xml
+        #echo "Executing mvn clean install"
+        #mvn clean install
+        echo "Executing mvn clean test -Dtest=$GROUPS -Denv=$ENV"
+        mvn -s settings.xml clean test -Dgroups=$GROUPS -Denv=$ENV -Dservice.dataLoad.token=$DL_TOKEN
+        mv allure-results ${GITHUB_WORKSPACE}/allure-results-folder-for-$ENV

@@ -1,0 +1,173 @@
+app:
+  maven:
+    cd: true
+    enabled: false
+    appType: maven
+    buildDeploy: false
+    mavenVersion: "3.9.11"
+    javaVersion: "21"
+    mavenArgs: clean install package -Dserver.GH_USER=${GH_USER} -Dserver.GH_TOKEN=${GH_TOKEN} -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -s settings.xml
+
+  node:
+    cd: true
+    enabled: false
+    buildDeploy: false
+    appType: nodejs
+    nodeVersion: "18.20.4"
+    publishGit: false
+    nodeInstallArgs: pnpm install --prefer-offline --frozen-lockfile
+    nodeBuildArgs: pnpm run build
+    nodeTestArgs: pnpm run test -- --watchAll=false --ci
+
+  sonar:
+    enabled: true
+    sonarOrg: tractor-supply-ecommerce
+    sonarProjectName: default-project-name
+
+acr:
+  prod: tsccrecmp01
+  nonprod: tsccrecmnp01
+deploy:
+  manualApproval:
+    nonprod: ture
+    prod: true
+  default_environments: d2
+  autoDeployBranches:
+    develop:
+      env:
+        - d2
+      autoDeploy: true
+
+  spaces:
+    d1:
+      port: 8080
+      namespace: ecom-svc-d1
+      host: bqs-d1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    d2:
+      port: 8080
+      namespace: ecom-svc-d2
+      host: bqs-d2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    d3:
+      port: 8080
+      namespace: ecom-svc-d3
+      host: bqs-d3.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    d4:
+      port: 8080
+      namespace: ecom-svc-d4
+      host: bqs-d4.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-centralus-01
+      resourcegroup: rg-wcs-nonprod-centralus
+    d5:
+      port: 8080
+      namespace: ecom-svc-d5
+      host: bqs-d5.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-centralus-01
+      resourcegroup: rg-wcs-nonprod-centralus
+    q1:
+      port: 8080
+      namespace: ecom-svc-q1
+      host: bqs-q1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    q2:
+      port: 8080
+      namespace: ecom-svc-q2
+      host: bqs-q2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    q3:
+      port: 8080
+      namespace: ecom-svc-q3
+      host: bqs-q3.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    q4:
+      port: 8080
+      namespace: ecom-svc-q4
+      host: bqs-q4.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-centralus-01
+      resourcegroup: rg-wcs-nonprod-centralus
+    q5:
+      port: 8080
+      namespace: ecom-svc-q5
+      host: bqs-q5.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-centralus-01
+      resourcegroup: rg-wcs-nonprod-centralus
+    u1a:
+      port: 8080
+      namespace: ecom-svc-u1a
+      host: bqs-u1a.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    u1b:
+      port: 8080
+      namespace: ecom-svc-u1b
+      host: bqs-u1b.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    p1:
+      port: 8080
+      namespace: ecom-svc-p1
+      host: bqs-p1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+      resourcegroup: rg-wcs-nonprod-eastus2
+    p2:
+      port: 8080
+      namespace: ecom-svc-p2
+      host: bqs-p2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-centralus-01
+      resourcegroup: rg-wcs-nonprod-centralus
+
+  production:
+    default_environments: prodb
+    spaces:
+      proda:
+        port: 8080
+        namespace: ecom-svc-proda
+        host: bqs-proda.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+        resourcegroup: rg-wcs-prod-eastus2
+      prodb:
+        port: 8080
+        namespace: ecom-svc-prodb
+        host: bqs-prodb.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+        resourcegroup: rg-wcs-prod-eastus2
+      prod:
+        port: 8080
+        namespace: ecom-svc-prod
+        host: bqs-prod.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-centralus-01
+        resourcegroup: rg-wcs-prod-centralus
+
+secrets:
+  ACR_NONPROD: ${{ secrets.ACR_NONPROD }}
+  ACR_USERNAME_NONPROD: ${{ secrets.ACR_USERNAME_NONPROD }}
+  ACR_PASSWORD_NONPROD: ${{ secrets.ACR_PASSWORD_NONPROD }}
+  ACR_USERNAME_PROD: ${{ secrets.ACR_USERNAME_PROD }}
+  ACR_PASSWORD_PROD: ${{ secrets.ACR_PASSWORD_PROD }}
+  GH_USER: ${{ secrets.GH_USER }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+  AZURE_VAULT_TOKEN: ${{ secrets.AZURE_VAULT_TOKEN }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+features:
+  akamaiCacheClear: false
+  redisCacheClear: false
+  scanning: false
+
+environment: ${{ needs.Reusable-Workflow.outputs.environment }}

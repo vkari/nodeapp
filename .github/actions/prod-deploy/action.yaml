@@ -1,0 +1,200 @@
+name: Deploy Application to AKS (Prod)
+
+description: Deploys Helm charts to AKS using production credentials
+
+inputs:
+  environment:
+    required: true
+  acr_name:
+    required: true
+  resourcegroup:
+    required: true
+  clustername:
+    required: true
+  chartpath:
+    required: true
+  valuespath:
+    required: true
+  namespace:
+    required: true
+  docker_tag:
+    required: true
+  app_type:
+    required: true
+  debug:
+    required: false
+    default: false
+  dry_run:
+    required: false
+    default: false
+  azure_client_id:
+    required: true
+  azure_client_secret:
+    required: true
+  azure_tenant_id:
+    required: true
+  azure_subscription_id:
+    required: true
+  port:
+    required: false
+    default: 8080
+
+runs:
+  using: "composite"
+  steps:
+    - name: 🧚️ Set Env Vars
+      shell: bash
+      run: |
+        echo "RESOURCE_GROUP=${{ inputs.resourcegroup }}" >> $GITHUB_ENV
+        echo "CLUSTER_NAME=${{ inputs.clustername }}" >> $GITHUB_ENV
+        echo "CHART_PATH=${{ inputs.chartpath }}" >> $GITHUB_ENV
+        echo "CHART_OVERRIDE_PATH=${{ inputs.valuespath }}" >> $GITHUB_ENV
+        echo "K8S_NAMESPACE=${{ inputs.namespace }}" >> $GITHUB_ENV
+        docker_tag="${{ inputs.docker_tag }}"
+        if [ -z "$docker_tag" ]; then
+          docker_tag="${GITHUB_REF_NAME//\//.}.${GITHUB_RUN_NUMBER}"
+        fi
+        echo "DOCKER_TAG=$docker_tag" >> $GITHUB_ENV
+        export DOCKER_TAG="$docker_tag"
+        echo "DEBUG_MODE=${{ inputs.debug }}" >> $GITHUB_ENV
+        echo "DRY_RUN_MODE=${{ inputs.dry_run }}" >> $GITHUB_ENV
+        echo "AZURE_CONTAINER_REGISTRY=${{ inputs.acr_name }}.azurecr.io" >> $GITHUB_ENV
+        echo "AZURE_CONTAINER_NAME=${{ inputs.acr_name }}" >> $GITHUB_ENV
+        echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+        echo "VERSION_LOCAL=1.0.0" >> $GITHUB_ENV
+        echo "DEPLOY_ENV=${{ inputs.environment }}" >> $GITHUB_ENV
+        echo "DEBUG: CHART_OVERRIDE_PATH=$CHART_OVERRIDE_PATH"
+        echo "DEBUG: DEPLOY_ENV=$DEPLOY_ENV"
+        echo "APP_TYPE=${{ inputs.app_type }}" >> $GITHUB_ENV
+
+    - name: 🎞️ Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🛠️ Install Azure CLI
+      shell: bash
+      run: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+    - name: ⚙️ Install kubectl (Local Path)
+      shell: bash
+      run: |
+        mkdir -p $HOME/.local/bin
+        curl -Lo $HOME/.local/bin/kubectl https://dl.k8s.io/release/v1.32.3/bin/linux/amd64/kubectl
+        chmod +x $HOME/.local/bin/kubectl
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: ☁️ Azure Login
+      uses: azure/login@v1
+      with:
+        creds: |
+          {
+            "subscriptionId": "${{ inputs.azure_subscription_id }}",
+            "clientId": "${{ inputs.azure_client_id }}",
+            "clientSecret": "${{ inputs.azure_client_secret }}",
+            "tenantId": "${{ inputs.azure_tenant_id }}"
+          }
+
+    - name: 🔐 Setup kubelogin
+      shell: bash
+      run: |
+        curl -LO https://github.com/Azure/kubelogin/releases/download/v0.0.27/kubelogin-linux-amd64.zip
+        sudo unzip -j kubelogin-linux-amd64.zip -d /usr/local/bin
+        rm -f kubelogin-linux-amd64.zip
+
+    - name: 🧰 Install Helm
+      uses: Azure/setup-helm@v3
+      with:
+        version: v3.11.3
+
+    - name: 🔧 Set AKS Context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ env.RESOURCE_GROUP }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        admin: "false"
+        use-kubelogin: "true"
+
+    - name: 🚀 Deploy Helm Chart
+      shell: bash
+      run: |
+        set -e
+
+        update_values() {
+          local VALUES_FILE=$1
+          sed -i "s|namespace:.*|namespace: $K8S_NAMESPACE|" "$VALUES_FILE"
+          sed -i "s|registry:.*|registry: $AZURE_CONTAINER_REGISTRY/$REPO_NAME|" "$VALUES_FILE"
+          sed -i "s|tag:.*|tag: $DOCKER_TAG|" "$VALUES_FILE"
+          if [[ "$APP_TYPE" == "nodejs" ]] && [[ "$REPO_NAME" != "tsc-storybook-design-system" ]]; then
+            sed -i "s|appPort:.*|appPort: 3000|" "$VALUES_FILE"
+            echo "React app detected - setting appPort to 3000"
+          else
+            sed -i "s|appPort:.*|appPort: 8080|" "$VALUES_FILE"
+            echo "Maven app detected - setting appPort to 8080"
+          fi
+        }
+
+        deploy_chart() {
+          local RELEASE_NAME=$1
+          local VALUES_FILE=$2
+
+          echo "Pre-deployment status check for $RELEASE_NAME"
+          kubectl get deployment "$RELEASE_NAME" --kube-context="$CLUSTER_NAME" -n "$K8S_NAMESPACE" -o wide || echo "Deployment $RELEASE_NAME not found"
+          kubectl get pods --kube-context="$CLUSTER_NAME" -n "$K8S_NAMESPACE" --selector=app.kubernetes.io/name="$RELEASE_NAME" || true
+
+          CHART_FILE="$CHART_PATH/Chart.yaml"
+          DEPLOYMENT_FILE="$CHART_PATH/templates/deployment.yaml"
+
+          sed -i "s|appVersion:.*|appVersion: version_$VERSION_LOCAL|" "$CHART_FILE"
+          sed -i "s|description:.*|description: A Helm Chart for $REPO_NAME|" "$CHART_FILE"
+          sed -i "s|name:.*|name: $REPO_NAME|" "$CHART_FILE"
+          sed -i "s|version:.*|version: $VERSION_LOCAL|" "$CHART_FILE"
+
+          sed -i "s|DepEnv|$DEPLOY_ENV|g" "$DEPLOYMENT_FILE"
+          sed -i "s|jarFilename|$REPO_NAME.jar|g" "$DEPLOYMENT_FILE"
+
+          update_values "$VALUES_FILE"
+
+          DEBUG_FLAG=""
+          [[ "$DEBUG_MODE" == "true" ]] && DEBUG_FLAG="--debug"
+          DRY_RUN_FLAG=""
+          [[ "$DRY_RUN_MODE" == "true" ]] && DRY_RUN_FLAG="--dry-run"
+
+          echo "Checking existing status for $RELEASE_NAME..."
+          STATUS=$(helm status --kube-context="$CLUSTER_NAME" "$RELEASE_NAME" -n "$K8S_NAMESPACE" 2>&1 || true)
+
+          HELM_CMD="helm upgrade --install $DEBUG_FLAG $DRY_RUN_FLAG --kube-context=\"$CLUSTER_NAME\" --namespace \"$K8S_NAMESPACE\" \"$RELEASE_NAME\" \"$CHART_PATH\" -f \"$VALUES_FILE\" --wait --timeout 15m"
+          echo ">> $HELM_CMD"
+
+          if [[ "$STATUS" == *"STATUS: deployed"* ]]; then
+            echo "Upgrading existing release: $RELEASE_NAME"
+            eval $HELM_CMD
+          elif [[ "$STATUS" == *"STATUS: failed"* || "$STATUS" == *"pending-install"* ]]; then
+            echo "Previous deploy failed. Cleaning and retrying $RELEASE_NAME..."
+            echo ">> helm uninstall \"$RELEASE_NAME\" --kube-context=\"$CLUSTER_NAME\" -n \"$K8S_NAMESPACE\""
+            helm uninstall "$RELEASE_NAME" --kube-context="$CLUSTER_NAME" -n "$K8S_NAMESPACE" || true
+            echo ">> $HELM_CMD"
+            eval $HELM_CMD
+          else
+            echo "Creating new release: $RELEASE_NAME"
+            eval $HELM_CMD
+          fi
+
+          echo "🧾 Pod Status for $RELEASE_NAME"
+          kubectl get pods --kube-context="$CLUSTER_NAME" -n "$K8S_NAMESPACE" --selector=app.kubernetes.io/name="$RELEASE_NAME" -o wide || true
+          kubectl describe deployment --kube-context="$CLUSTER_NAME" "$RELEASE_NAME" -n "$K8S_NAMESPACE" || true
+        }
+
+        echo "Starting deployment..."
+        echo "Using environment: $DEPLOY_ENV"
+        echo "Pre-deployment status check"
+
+        kubectl get deployments -n "$K8S_NAMESPACE" --kube-context="$CLUSTER_NAME" -o wide || echo "No deployments found in the namespace"
+        kubectl get pods -n "$K8S_NAMESPACE" --kube-context="$CLUSTER_NAME" || true
+
+        if [[ "$APP_TYPE" == "nodejs" ]] && [[ "$REPO_NAME" != "tsc-storybook-design-system" ]]; then
+          echo "React app detected - deploying AUTH first, then LIVE"
+          deploy_chart "${REPO_NAME}-auth" "$CHART_PATH/helm_vars/$DEPLOY_ENV/values.auth.yaml"
+          deploy_chart "$REPO_NAME" "$CHART_PATH/helm_vars/$DEPLOY_ENV/values.yaml"
+        else
+          echo "Maven app  or non auth detected - deploying LIVE only"
+          deploy_chart "$REPO_NAME" "$CHART_OVERRIDE_PATH"
+        fi

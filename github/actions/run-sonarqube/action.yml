@@ -1,0 +1,64 @@
+name: Scan JAVA app using SonarQube
+description: GitHub Action to scan JAVA application
+
+inputs:
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  sonar_token:
+    description: 'SONAR_TOKEN org secret'
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build and analyze
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        SONAR_TOKEN: ${{ inputs.sonar_token }}
+        SONAR_HOST_URL: "https://sonarcloud.io/"
+        PR_KEY: ${{ github.event.pull_request.number }}
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ~/.m2/settings.xml
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ./settings.xml
+
+        # build
+        mvn -s settings.xml -U -e -Dsurefire.useFile=false -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true clean install package -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -V
+
+        # sonar scan
+        ORG_NAME=$(echo "${GITHUB_REPOSITORY%%/*}" | tr '[:upper:]' '[:lower:]')
+        REPO="${GITHUB_REPOSITORY##*/}"
+
+        if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          PR_BRANCH="$GITHUB_HEAD_REF"
+          BASE_BRANCH="$GITHUB_BASE_REF"
+          echo "PR scan #${PR_KEY} : $PR_BRANCH -> $BASE_BRANCH"
+          sonar-scanner \
+          -Dsonar.projectName="${REPO}" \
+          -Dsonar.projectKey="${REPO}" \
+          -Dsonar.organization="${ORG_NAME}" \
+          -Dsonar.host.url="${SONAR_HOST_URL}" \
+          -Dsonar.token="${SONAR_TOKEN}" \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.qualitygate.timeout=2400 \
+          -Dsonar.pullrequest.key="${PR_KEY}" \
+          -Dsonar.pullrequest.branch="${PR_BRANCH}" \
+          -Dsonar.pullrequest.base="${BASE_BRANCH}"
+        else
+          echo "Branch scan: $GITHUB_REF_NAME"
+          sonar-scanner \
+          -Dsonar.projectName="${REPO}" \
+          -Dsonar.projectKey="${REPO}" \
+          -Dsonar.organization="${ORG_NAME}" \
+          -Dsonar.host.url="${SONAR_HOST_URL}" \
+          -Dsonar.token="${SONAR_TOKEN}" \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.qualitygate.timeout=2400 \
+          -Dsonar.branch.name="${GITHUB_REF_NAME}"
+        fi

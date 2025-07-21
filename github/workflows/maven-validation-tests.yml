@@ -1,0 +1,96 @@
+on:
+  workflow_call:
+
+    inputs:
+      java_version:
+        description: 'JAVA version.'
+        type: string
+        default: '21'
+      groups:
+        description: 'Choose the groups'
+        type: string
+        required: true
+      env:
+        description: 'Choose the environment'
+        type: string
+        required: true
+    secrets:
+      gh_user:
+        description: 'GH_USER org secret'
+        required: true
+      gh_token:
+        description: 'GH_TOKEN org secret'
+        required: true
+      sonar_token:
+        description: 'SONAR_TOKEN org secret'
+        required: true
+      azure_client_id:
+        description: 'AZURE_CLIENT_ID org secret'
+        required: true
+      azure_client_secret:
+        description: 'AZURE_CLIENT_SECRET org secret'
+        required: true
+      azure_tenant_id:
+        description: 'AZURE_TENANT_ID org secret'
+        required: true
+      catalog_dl_token:
+        description: 'CATALOG_DL_TOKEN org secret'
+        required: true
+
+jobs:
+  e2e-validation-tests:
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: validation-tests-action
+        id: validation-tests-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          sonar_token: ${{ secrets.sonar_token }}
+          env: ${{ inputs.env }}
+          groups: ${{ inputs.groups }}
+          catalog_dl_token: ${{ secrets.catalog_dl_token }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-validations-tests@main
+      
+      - name: allure-report-dev-action
+        id: allure-report-dev-action
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          e: ${{ inputs.env }}
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-allure-report-e2e@main
+
+      - name: Deploy Allure Report to Github Pages
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-github-pages@main
+
+      - name: Publish Allure Report URLs as PR comment
+        with:
+          comment_body: "${{ steps.allure-report-dev-action.outputs.allure_url }}"
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/pr-comment@main
+
+      - name: Publish Allure Report URL as Annotation
+        run: |
+          echo "::notice::${{ steps.allure-report-dev-action.outputs.allure_url }}"

@@ -1,0 +1,120 @@
+name: Maven Build
+
+description: Build Maven project and prepare artifact
+
+inputs:
+  java-version:
+    description: Java version
+    required: false
+    default: '21'
+  maven-version:
+    description: Maven version
+    required: false
+    default: '3.9.6'
+  maven-args:
+    description: Arguments to pass to Maven
+    required: false
+    default: 'clean install -DskipTests'
+  azure_client_id:
+    required: true
+  azure_client_secret:
+    required: true
+  azure_tenant_id:
+    required: true
+  azure_subscription_id:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Azure CLI
+      shell: bash
+      run: |
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+    - name: Azure CLI Login with Service Principal
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ inputs.azure_client_id }}","clientSecret":"${{ inputs.azure_client_secret }}","subscriptionId":"${{ inputs.azure_subscription_id }}","tenantId":"${{ inputs.azure_tenant_id }}"}'
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Set JAVA_HOME
+      shell: bash
+      run: echo "JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))" >> $GITHUB_ENV
+
+    - name: Install Maven and xmllint
+      shell: bash
+      run: |
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        echo "JAVA_HOME set to $JAVA_HOME"
+
+        if ! command -v mvn &> /dev/null; then
+          echo "Maven not found. Installing Maven ${{ inputs.maven-version }}..."
+          wget https://downloads.apache.org/maven/maven-3/${{ inputs.maven-version }}/binaries/apache-maven-${{ inputs.maven-version }}-bin.tar.gz
+          sudo tar xf apache-maven-${{ inputs.maven-version }}-bin.tar.gz -C /opt
+          sudo ln -s /opt/apache-maven-${{ inputs.maven-version }}/bin/mvn /usr/local/bin/mvn
+        fi
+        sudo apt-get update && sudo apt-get install -y libxml2-utils
+        mvn -version
+    - name: Prepare settings.xml
+      shell: bash
+      run: |
+        if [ -f "$GITHUB_WORKSPACE/settings.xml" ]; then
+          echo "Using repository provided settings.xml"
+        else
+          echo "Using default settings.xml from action"
+          cp "${{ github.action_path }}/utils/settings.xml" "$GITHUB_WORKSPACE/settings.xml"
+        fi
+
+    - name: Build Java code and extract JAR
+      shell: bash
+      run: |
+        echo "Running Maven build with args:"
+        echo "${{ inputs.maven-args }}"
+        mvn --batch-mode -U -e -Dsurefire.useFile=false \
+            ${{ inputs.maven-args }} -V
+
+        echo "Extracting artifactId and version from POM..."
+        artifactId=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" pom.xml)
+        version=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" pom.xml)
+
+        if [[ -z "$artifactId" || -z "$version" ]]; then
+          echo "❌ Failed to extract artifactId or version from POM"
+          exit 1
+        fi
+
+        echo "<artifactId>${artifactId}</artifactId>"
+        echo "<version>${version}</version>"
+
+        artifactFile="${artifactId}-${version}.jar"
+        echo "ARTIFACT_ID: ${artifactFile}"
+
+        echo "Jenkins node username: $(whoami)"
+        echo "Version to be used for test: ${version}"
+        echo "POM ArtifactId : ${artifactId}"
+
+        echo "📂 Listing target folder:"
+        ls -lrt target/
+
+        if [ ! -f "target/${artifactFile}" ]; then
+          echo "❌ JAR not found: target/${artifactFile}"
+          exit 1
+        fi
+
+        mkdir -p app
+        cp "target/${artifactFile}" app/application.jar
+
+#    - name: Upload built app folder
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: app
+#        path: app/

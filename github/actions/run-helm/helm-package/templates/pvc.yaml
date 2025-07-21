@@ -1,0 +1,65 @@
+# PVC for dataloadVolume
+{{- if .Values.extraPersistentVolumeClaims.dataloadVolume }}
+{{- if .Values.extraPersistentVolumeClaims.dataloadVolume.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{.Values.extraPersistentVolumeClaims.dataloadVolume.storageName}}"
+spec:
+  accessModes:
+  - {{.Values.extraPersistentVolumeClaims.dataloadVolume.accessModes}}
+  {{- if .Values.extraPersistentVolumeClaims.dataloadVolume.nfsEnabled }}
+  storageClassName: ""
+  volumeName: {{.Values.extraPersistentVolumeClaims.dataloadVolume.storageName}}
+  {{- else }}
+  storageClassName: {{.Values.extraPersistentVolumeClaims.dataloadVolume.storageClass}}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{.Values.extraPersistentVolumeClaims.dataloadVolume.storageSize}}
+{{- end }}
+{{- end }}
+---
+# PVC for dataloadLogVolume
+{{- if .Values.extraPersistentVolumeClaims.dataloadLogVolume }}
+{{- if .Values.extraPersistentVolumeClaims.dataloadLogVolume.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{.Values.extraPersistentVolumeClaims.dataloadLogVolume.storageName}}"
+spec:
+  accessModes:
+  - {{.Values.extraPersistentVolumeClaims.dataloadLogVolume.accessModes}}
+  {{- if .Values.extraPersistentVolumeClaims.dataloadLogVolume.nfsEnabled }}
+  storageClassName: ""
+  volumeName: {{.Values.extraPersistentVolumeClaims.dataloadLogVolume.storageName}}
+  {{- else }}
+  storageClassName: {{.Values.extraPersistentVolumeClaims.dataloadLogVolume.storageClass}}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{.Values.extraPersistentVolumeClaims.dataloadLogVolume.storageSize}}
+{{- end }}
+{{- end }}
+---
+# PVC for appLogLiveVolume
+{{- if .Values.extraPersistentVolumeClaims.appLogLiveVolume }}
+{{- if .Values.extraPersistentVolumeClaims.appLogLiveVolume.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{.Values.extraPersistentVolumeClaims.appLogLiveVolume.storageName}}"
+spec:
+  accessModes:
+  - {{.Values.extraPersistentVolumeClaims.appLogLiveVolume.accessModes}}
+  {{- if .Values.extraPersistentVolumeClaims.appLogLiveVolume.nfsEnabled }}
+  storageClassName: ""
+  volumeName: {{.Values.extraPersistentVolumeClaims.appLogLiveVolume.storageName}}
+  {{- else }}
+  storageClassName: {{.Values.extraPersistentVolumeClaims.appLogLiveVolume.storageClass}}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{.Values.extraPersistentVolumeClaims.appLogLiveVolume.storageSize}}
+{{- end }}
+{{- end }}

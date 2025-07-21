@@ -1,0 +1,90 @@
+name: Sonar Analysis
+description: Run SonarQube or SonarCloud analysis with automatic project creation and PR support
+
+inputs:
+  sonar_token:
+    required: true
+  sonar_host_url:
+    required: true
+  sonar_project_key:
+    required: false
+  sonar_project_name:
+    required: false
+  coverage_exclusions:
+    required: false
+    default: "**/node_modules/**,**/dist/**,**/build/**"
+  skip_quality_gate:
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: 📘 Print Sonar Info
+      shell: bash
+      run: |
+        echo "📘 GitHub Repo: $GITHUB_REPOSITORY"
+        echo "🔀 Branch: $GITHUB_REF_NAME"
+        echo "☁️ Sonar Host: ${{ inputs.sonar_host_url }}"
+
+    - name: 📦 Install Sonar Scanner
+      shell: bash
+      run: |
+        curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+        unzip -q sonar-scanner.zip -d $HOME/.sonar
+        echo "$HOME/.sonar/sonar-scanner-5.0.1.3006-linux/bin" >> $GITHUB_PATH
+
+    - name: 🚀 Run Sonar Scanner
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        SONAR_PROJECT_KEY="${{ inputs.sonar_project_key || github.repository }}"
+        SONAR_PROJECT_NAME="${{ inputs.sonar_project_name || github.repository }}"
+        SONAR_HOST="${{ inputs.sonar_host_url }}"
+        SONAR_TOKEN="${{ inputs.sonar_token }}"
+        GIT_ORG=$(echo "${GITHUB_REPOSITORY}" | cut -d'/' -f1 | tr '[:upper:]' '[:lower:]')
+
+        echo "🔍 Checking if project '${SONAR_PROJECT_KEY}' exists in SonarCloud..."
+        PROJECT_CHECK=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST}/api/projects/search?projects=${SONAR_PROJECT_KEY}")
+
+        if [[ "$PROJECT_CHECK" == *'"total":0'* ]]; then
+          echo "🆕 Project '${SONAR_PROJECT_KEY}' not found. Creating..."
+          curl -s -u "${SONAR_TOKEN}:" -X POST "${SONAR_HOST}/api/projects/create" \
+            -d "name=${SONAR_PROJECT_NAME}" \
+            -d "project=${SONAR_PROJECT_KEY}" \
+            -d "organization=${GIT_ORG}"
+        else
+          echo "✅ Project '${SONAR_PROJECT_KEY}' already exists."
+        fi
+
+        echo "⚙️ Building Sonar Scanner command..."
+        SONAR_ARGS="\
+          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+          -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+          -Dsonar.host.url=https://sonarcloud.io/ \
+          -Dsonar.login=${SONAR_TOKEN} \
+          -Dsonar.organization=${GIT_ORG} \
+          -Dsonar.ws.ssl.verify=false \
+          -Dsonar.web.javaAdditionalOpts='-Dsonar.web.maxPostSize=504857600'"
+        if [[ "${{ inputs.skip_quality_gate }}" == "true" ]]; then
+          SONAR_ARGS="${SONAR_ARGS} -Dsonar.qualitygate.wait=false"
+        else
+          SONAR_ARGS="${SONAR_ARGS} \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.qualitygate.timeout=300"
+        fi
+
+        if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+          echo "🔎 Detected pull request. Adding PR scan params..."
+          SONAR_ARGS="${SONAR_ARGS} \
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }} \
+            -Dsonar.pullrequest.branch=${{ github.head_ref }} \
+            -Dsonar.pullrequest.base=${{ github.base_ref }}"
+        else
+          echo "🔍 Detected branch build. Using branch scan."
+          SONAR_ARGS="${SONAR_ARGS} -Dsonar.branch.name=${GITHUB_REF_NAME}"
+        fi
+
+        echo "🔧 Executing sonar-scanner..."
+        sonar-scanner $SONAR_ARGS

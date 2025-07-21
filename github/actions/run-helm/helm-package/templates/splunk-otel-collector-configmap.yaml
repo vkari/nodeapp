@@ -1,0 +1,16 @@
+{{- if $.Values.splunk.enable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Values.splunk.sidecar_configmap }}
+  labels:
+    app: splunk-otel-agent
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "-" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  namespace: {{ .Values.service.namespace }}
+
+data:
+  relay.conf: |
+    {{- include "splunk-otel-collector.agentConfig" . | nindent 4  }}
+{{- end }}

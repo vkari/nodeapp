@@ -1,0 +1,37 @@
+name: Build Docker image for runner
+
+inputs:
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  azure_client_id:
+    description: 'AZURE_CLIENT_ID org secret'
+    type: string
+  azure_client_secret:
+    description: 'AZURE_CLIENT_SECRET org secret'
+    type: string
+  azure_tenant_id:
+    description: 'AZURE_TENANT_ID org secret'
+    type: string
+  azure_acr_name:
+    description: 'AZURE_ACR_NAME'
+    type: string
+    default: 'tsccrecmnp01'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build Docker image
+      id: build-docker
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        AZURE_CLIENT_ID: ${{ inputs.azure_client_id }}
+        AZURE_CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        AZURE_ACR_NAME: ${{ inputs.azure_acr_name }}
+      shell: bash
+      run: ${GITHUB_ACTION_PATH}/script.sh

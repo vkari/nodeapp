@@ -1,0 +1,12 @@
+name: Setup maven settings
+description: GitHub Action to setup the maven settings.xml file
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create settings.xml
+      id: create-settings-xml
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        cp ${GITHUB_ACTION_PATH}/settings.xml ~/.m2/settings.xml

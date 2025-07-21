@@ -1,0 +1,326 @@
+name: Reusable TSC CI/CD Workflow
+
+on:
+  workflow_call:
+    inputs:
+      appType:
+        type: string
+        required: false
+      publishGit:
+        type: boolean
+        required: false
+        default: false
+      autoDeploy:
+        type: boolean
+        required: false
+        default: true
+      enableSonar:
+        type: boolean
+        required: false
+        default: true
+      cd:
+        type: boolean
+        required: false
+        default: true
+      enableRegression:
+        type: boolean
+        required: false
+        default: true
+      environment:
+        type: string
+        required: false
+      mavenArgs:
+        type: string
+        required: false
+      mavenVersion:
+        type: string
+        required: false
+        default: '3.9.6'
+      javaVersion:
+        type: string
+        required: false
+        default: '21'
+      dockerTag:
+        type: string
+        required: false
+
+    secrets:
+      GH_USER:
+        required: false
+      GH_TOKEN:
+        required: false
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
+        required: false
+      ACR_NONPROD:
+        required: false
+      ACR_USERNAME_NONPROD:
+        required: false
+      ACR_PASSWORD_NONPROD:
+        required: false
+      ACR_USERNAME_PROD:
+        required: false
+      ACR_PASSWORD_PROD:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        required: false
+      DOCKER_USER:
+        required: false
+      DOCKER_PASS:
+        required: false
+      KUBE_CONFIG:
+        required: false
+      AZURE_VAULT_TOKEN:
+        required: false
+      CLIENT_ID:
+        required: false
+      CLIENT_SECRET:
+        required: false
+      TENANT_ID:
+        required: false
+      SOURCE_KV_URL_NONPROD:
+        required: false
+
+
+
+permissions:
+  id-token: write
+  contents: write
+  deployments: write
+  pull-requests: write
+  statuses: write
+  pages: write
+  packages: write
+
+jobs:
+  ci:
+    name: 🍀 Build, Test & Publish
+    runs-on: self-hosted
+    outputs:
+      docker_tag: ${{ steps.set-tag.outputs.docker_tag }}
+      deploy_envs_json: ${{ steps.trusted.outputs.deployEnvsJson }}
+      auto_deploy: ${{ steps.trusted.outputs.autoDeploy }}
+      manual_prod_approval: ${{ steps.trusted.outputs.manualProdApproval }}
+      manual_nonprod_approval: ${{ steps.trusted.outputs.manualNonProdApproval }}
+      cd: ${{ steps.trusted.outputs.cd }}
+    steps:
+      - name: 📦 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: 🧠 Load Dynamic Config
+        id: trusted
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/trusted-config@main
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          secrets_json: ${{ toJson(secrets) }}
+
+      - name: ☕ Setup Java
+        if: ${{ steps.trusted.outputs.appType == 'maven' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.trusted.outputs.javaVersion }}
+
+      - name: 🔖 Set Docker Tag
+        id: set-tag
+        run: |
+          tag="${{ inputs.dockerTag }}"
+          if [ -z "$tag" ]; then
+            formatted_branch="${GITHUB_REF_NAME//\//.}"
+            tag="${formatted_branch}.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "docker_tag=$tag" >> $GITHUB_OUTPUT
+          echo "DOCKER_TAG=$tag" >> $GITHUB_ENV
+
+      - name: ⚙️ Maven Build
+        if: ${{ steps.trusted.outputs.appType == 'maven' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/maven-build@main
+        with:
+          java-version: ${{ steps.trusted.outputs.javaVersion }}
+          maven-version: ${{ steps.trusted.outputs.mavenVersion }}
+          maven-args: ${{ steps.trusted.outputs.mavenArgs }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        env:
+          GH_USER: ${{ secrets.GH_USER }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: ⚛️ Node Build
+        if: ${{ steps.trusted.outputs.appType == 'nodejs' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/react-build@main
+        with:
+          publishGit: ${{ inputs.publishGit }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          SOURCE_KV_URL: ${{ secrets.SOURCE_KV_URL_NONPROD }}
+          CLIENT_ID: ${{ secrets.AZURE_VAULT_CLIENT_ID_NONPROD }}
+          CLIENT_SECRET: ${{ secrets.AZURE_VAULT_CLIENT_SECRET_NONPROD }}
+          TENANT_ID: ${{ secrets.AZURE_VAULT_TENANT_ID }}
+        env:
+          NODE_VERSION: ${{ steps.trusted.outputs.nodeVersion }}
+          nodeInstallArgs: ${{ steps.trusted.outputs.nodeInstallArgs }}
+          nodeBuildArgs: ${{ steps.trusted.outputs.nodeBuildArgs }}
+          nodeTestArgs: ${{ steps.trusted.outputs.nodeTestArgs }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_USER: ${{ secrets.GH_USER }}
+          SOURCE_KV_URL: ${{ secrets.SOURCE_KV_URL_NONPROD }}
+          CLIENT_ID: ${{ secrets.AZURE_VAULT_CLIENT_ID_NONPROD }}
+          CLIENT_SECRET: ${{ secrets.AZURE_VAULT_CLIENT_SECRET_NONPROD }}
+          TENANT_ID: ${{ secrets.AZURE_VAULT_TENANT_ID }}
+
+      - name: 🧪 SonarQube Scan
+        if: ${{ steps.trusted.outputs.enableSonar == 'true' && steps.trusted.outputs.sonarProjectName != '' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/sonar-scan@main
+        with:
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
+          sonar_host_url: ${{ vars.SONAR_HOST_URL }}
+          sonar_project_key: ${{ steps.trusted.outputs.sonarProjectName }}
+          sonar_project_name: ${{ steps.trusted.outputs.sonarProjectName }}
+          skip_quality_gate: ${{ steps.trusted.outputs.skipQualityGate }}
+      - name: 🏷️ Create and Push Git Tag - ${{ env.DOCKER_TAG }}
+        if: ${{ steps.trusted.outputs.cd == 'true' }}
+        env:
+          GH_USER: ${{ secrets.GH_USER }}
+          GH_PAT: ${{ secrets.GH_PAT }}  # must be a PAT with `repo` + `workflow` scopes
+        run: |
+          export HUSKY=0
+          git config user.name "${GH_USER}"
+          git config user.email "vkari@tractorsupply.com"
+          git remote set-url origin "https://x-access-token:${GH_PAT}@github.com/${GITHUB_REPOSITORY}.git"
+          echo "🏷️ Creating or updating tag ${{ env.DOCKER_TAG }}"
+          git tag -f "${{ env.DOCKER_TAG }}"
+
+          echo "🚀 Pushing tag to GitHub (force)"
+          git push --force origin "${{ env.DOCKER_TAG }}"
+      
+
+      - name: 🐳 Docker Publish
+        if: ${{ steps.trusted.outputs.cd == 'true' }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/docker-publish@main
+        with:
+          acr_name: ${{ env.AZURE_CONTAINER_NAME }}
+          acr_username_nonprod: ${{ secrets.ACR_USERNAME_NONPROD }}
+          acr_password_nonprod: ${{ secrets.ACR_PASSWORD_NONPROD }}
+          acr_username_prod: ${{ secrets.ACR_USERNAME_PROD }}
+          acr_password_prod: ${{ secrets.ACR_PASSWORD_PROD }}
+          environment: ${{ env.DEPLOY_ENV }}
+          image_repo: ${{ env.AZURE_CONTAINER_REGISTRY }}
+          image_path: ${{ env.REPO_NAME }}
+          docker_tag: ${{ env.DOCKER_TAG }}
+      - name: 🔍 Print CI step outputs
+        run: |
+          echo "docker_tag=${{ steps.set-tag.outputs.docker_tag }}"
+          echo 'deploy_envs_json=${{ steps.trusted.outputs.deployEnvsJson }}'
+          echo "auto_deploy=${{ steps.trusted.outputs.autoDeploy }}"
+
+  deploy:
+    name: 🚀 Deploy ${{ matrix.env }}
+    if: ${{ needs.ci.outputs.cd == 'true' && needs.ci.outputs.auto_deploy == 'true' }}
+    needs: [ ci ]
+    runs-on: self-hosted
+    environment: ${{ matrix.env }}
+    strategy:
+      max-parallel: 1
+      matrix:
+        env: ${{ fromJson(needs.ci.outputs.deploy_envs_json || '[]') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔍 Print CI outputs
+        run: |
+          echo "deploy_envs_json=${{ needs.ci.outputs.deploy_envs_json }}"
+          echo "docker_tag=${{ needs.ci.outputs.docker_tag }}"
+          echo "auto_deploy=${{ needs.ci.outputs.auto_deploy }}"
+
+      - name: 🧠 Load Config for ${{ matrix.env }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/trusted-config@main
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          environment: ${{ matrix.env }}
+          secrets_json: ${{ toJson(secrets) }}
+
+      - name: 📡 GitHub Deployment
+        id: create_deployment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.ref,
+              environment: "${{ matrix.env }}",
+              required_contexts: [],
+              auto_merge: false
+            });
+            return deployment.data.id;
+
+      - name: 🚢 Helm Deploy ${{ matrix.env }}
+        if: ${{ startsWith(inputs.environment, 'prod') }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/prod-deploy@main
+        with:
+          environment: ${{ matrix.env }}
+          docker_tag: ${{ needs.ci.outputs.docker_tag }}
+          acr_name: ${{ env.AZURE_CONTAINER_NAME }}
+          chartpath: 'pipeline/helm-package'
+          valuespath: "pipeline/helm-package/helm_vars/${{ matrix.env }}/values.yaml"
+          namespace: ${{ env.namespace }}
+          resourcegroup: ${{ env.resourcegroup }}
+          clustername: ${{ env.cluster }}
+          app_type: ${{ env.appType }}
+          debug: ${{ env.verbose }}
+          dry_run: ${{ env.dryrun }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID_PROD }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET_PROD }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID_PROD }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}
+
+      - name: 🚢 Helm Deploy
+        if: ${{ !startsWith(inputs.environment, 'prod') }}
+        uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/non-prod-deploy@main
+        with:
+          environment: ${{ matrix.env }}
+          docker_tag: ${{ needs.ci.outputs.docker_tag }}
+          acr_name: ${{ env.AZURE_CONTAINER_NAME }}
+          chartpath: 'pipeline/helm-package'
+          valuespath: "pipeline/helm-package/helm_vars/${{ matrix.env }}/values.yaml"
+          namespace: ${{ env.namespace }}
+          port: ${{ env.port }}
+          resourcegroup: ${{ env.resourcegroup }}
+          clustername: ${{ env.cluster }}
+          app_type: ${{ env.appType }}
+          debug: ${{ env.verbose }}
+          dry_run: ${{ env.dryrun }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ✅ Finalize Deployment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.create_deployment.outputs.result }},
+              state: 'success',
+              environment: "${{ matrix.env }}"
+            });

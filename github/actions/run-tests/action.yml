@@ -1,0 +1,61 @@
+name: Run Tests
+description: GitHub Action for Tests
+
+inputs:
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  sonar_token:
+    description: 'SONAR_TOKEN org secret'
+    type: string
+  test:
+    type: string
+  env:
+    type: string
+  groups:
+    type: string
+  profile:
+    type: string
+  catalog_dl_token:
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build and run tests
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        ENV: ${{ inputs.env }}
+        TEST: ${{ inputs.test }}
+        GROUPS: ${{ inputs.groups }}
+        PROFILE: ${{ inputs.profile }}
+        DL_TOKEN: ${{ inputs.catalog_dl_token }}
+      shell: bash
+      run: |
+        echo "[DEBUG] update mvn settings.xml"
+        mkdir -p ~/.m2
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ~/.m2/settings.xml
+        cp ${GITHUB_ACTION_PATH}/../shared/settings.xml ./settings.xml
+
+        if [ -n "$GROUPS" ] && [ -z "$TEST" ] && [ -z "$PROFILE" ]; then
+          echo "[DEBUG] Executing mvn clean test -Dgroups=$GROUPS -Denv=$ENV"
+          mvn -s settings.xml clean test -Dgroups=$GROUPS -Denv=$ENV
+        elif [ -z "$GROUPS" ] && [ -n "$TEST" ] && [ -z "$PROFILE" ]; then
+          echo "[DEBUG] Executing mvn clean test -Dtest=$TEST -Denv=$ENV"
+          mvn -s settings.xml clean test -Dtest=$TEST -Denv=$ENV
+        elif [ -z "$GROUPS" ] && [ -z "$TEST" ] && [ -n "$PROFILE" ]; then
+          echo "[DEBUG] Executing mvn clean test -P $PROFILE -Denv=$ENV"
+          mvn -s settings.xml clean test -P $PROFILE -Denv=$ENV
+        elif [ -z "$GROUPS" ] && [ -z "$TEST" ] && [ -z "$PROFILE" ]; then
+          echo "[DEBUG] Executing mvn clean test -Denv=$ENV"
+          mvn -s settings.xml clean test -Denv=$ENV
+        else
+          echo "[DEBUG] Unsupported combination of the input parameters. Use either Group or Test or Profile"
+          exit 1
+        fi
+
+        mv allure-results ${GITHUB_WORKSPACE}/allure-results-folder-for-$ENV

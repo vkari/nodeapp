@@ -1,0 +1,99 @@
+name: Run e2e tests for env
+description: GitHub Action to run e2e tests for env
+
+inputs:
+  java_version:
+    description: 'JAVA version'
+    default: 21
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  e:
+    description: 'Environment short name'
+    type: string
+  track:
+    description: 'Track number'
+    type: string
+    default: ''
+  allure_results:
+    description: 'Allure test result data dir'
+    required: true
+    default: 'allure-results'
+  allure_report:
+    description: 'Allure report target dir'
+    required: true
+    default: 'allure-report'
+  gh_pages:
+    description: 'Folder with gh-pages branch'
+    required: true
+    default: 'gh-pages'
+  allure_history:
+    description: 'Folder for allure history'
+    required: true
+    default: 'allure-history'
+  keep_reports:
+    description: 'Keep X last reports'
+    required: false
+    default: '1'
+  github_run_num:
+    description: 'GitHub Actions build number'
+    required: true
+    default: ${{ github.run_number }}
+  github_run_id:
+    description: 'GitHub Actions run id'
+    required: true
+    default: ${{ github.run_id }}
+  github_repo:
+    description: 'GitHub repository'
+    required: true
+    default: ${{ github.repository }}
+  github_repo_owner:
+    description: 'GitHub repository owner'
+    required: true
+    default: ${{ github.repository_owner }}
+  github_tests_repo:
+    description: 'GitHub repository where test are run'
+    required: true
+    default: ${{ github.repository }}
+  report_url:
+    description: 'Use a custom URL instead of *.github.io'
+    required: false
+    default: ''
+  github_server_url:
+    description: 'GitHub server URL'
+    required: true
+    default: ${{ github.server_url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Allure Report
+      id: run-allure-report
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        e: ${{ inputs.e }}
+        track: ${{ inputs.track }}
+        INPUT_GH_PAGES: ${{ inputs.gh_pages }}
+        INPUT_ALLURE_HISTORY: ${{ inputs.allure_history }}
+        INPUT_GITHUB_REPO: ${{ inputs.github_repo }}
+        INPUT_GITHUB_REPO_OWNER: ${{ inputs.github_repo_owner }}
+        INPUT_REPORT_URL: ${{ inputs.report_url }}
+        INPUT_KEEP_REPORTS: ${{ inputs.keep_reports }}
+        INPUT_GITHUB_SERVER_URL: ${{ inputs.github_server_url }}
+        INPUT_GITHUB_TESTS_REPO: ${{ inputs.github_tests_repo }}
+        INPUT_GITHUB_RUN_ID: ${{ inputs.github_run_id }}
+        INPUT_GITHUB_RUN_NUM: ${{ inputs.github_run_num }}
+        INPUT_ALLURE_RESULTS: ${{ inputs.allure_results }}
+        INPUT_ALLURE_REPORT: ${{ inputs.allure_report }}
+      shell: bash
+      run: ${GITHUB_ACTION_PATH}/allure.sh
+
+outputs:
+  allure_url: 
+    value: '${{ steps.run-allure-report.outputs.allure_url }}'
+  skip_allure_report: 
+    value: '${{ steps.run-allure-report.outputs.skip_allure_report }}'

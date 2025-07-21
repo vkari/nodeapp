@@ -1,0 +1,54 @@
+name: Run action which generates the service version
+description: GitHub Action for version generation
+
+inputs:
+  java_version:
+    description: 'JAVA version'
+    default: 21
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  azure_client_id:
+    description: 'AZURE_CLIENT_ID org secret'
+    type: string
+  azure_client_secret:
+    description: 'AZURE_CLIENT_SECRET org secret'
+    type: string
+  azure_tenant_id:
+    description: 'AZURE_TENANT_ID org secret'
+    type: string
+  azure_acr_name:
+    description: 'AZURE_ACR_NAME'
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Extract branch name
+      id: extract_branch
+      shell: bash
+      run: |
+        if [ -z "${GITHUB_BASE_REF}" ]; then
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        else
+          echo "branch=${GITHUB_BASE_REF}" >> $GITHUB_OUTPUT
+        fi
+    - name: Generate version action
+      id: run-generate-version
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        AZURE_CLIENT_ID: ${{ inputs.azure_client_id }}
+        AZURE_CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        AZURE_ACR_NAME: ${{ inputs.azure_acr_name }}
+        BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
+      shell: bash
+      run: ${GITHUB_ACTION_PATH}/version.sh
+
+outputs:
+  ver: 
+    value: '${{ steps.run-generate-version.outputs.ver }}'

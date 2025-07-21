@@ -1,0 +1,81 @@
+name: Deploy JAVA app with Helm
+description: GitHub Action to deploy JAVA app with Helm
+
+inputs:
+  java_version:
+    description: 'JAVA version'
+    default: 21
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  azure_client_id:
+    description: 'AZURE_CLIENT_ID org secret'
+    type: string
+  azure_client_secret:
+    description: 'AZURE_CLIENT_SECRET org secret'
+    type: string
+  azure_tenant_id:
+    description: 'AZURE_TENANT_ID org secret'
+    type: string
+  azure_client_id_prod:
+    description: 'AZURE_CLIENT_ID_PROD org secret'
+    type: string
+  azure_client_secret_prod:
+    description: 'AZURE_CLIENT_SECRET_PROD org secret'
+    type: string
+  azure_tenant_id_prod:
+    description: 'AZURE_TENANT_ID_PROD org secret'
+    type: string
+  azure_acr_name:
+    description: 'Non-prod AZURE_ACR_NAME'
+    type: string
+  azure_acr_name_prod:
+    description: 'Prod AZURE_ACR_NAME'
+    type: string
+  rg:
+    description: "Non-prod RG"
+    type: string
+  rg_prod:
+    description: "Prod RG"
+    type: string
+  kube_context:
+    description: "Non-prod AKS context"
+    type: string
+  kube_context_prod:
+    description: "Prod AKS context"
+    type: string
+  ver:
+    description: 'image version'
+    type: string
+  e:
+    description: 'Environment short name'
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Helm release
+      id: run-helm
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        AZURE_CLIENT_ID: ${{ inputs.azure_client_id }}
+        AZURE_CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        RG_NP: ${{ inputs.rg }}
+        AZURE_ACR_NAME_NP: ${{ inputs.azure_acr_name }}
+        KUBE_CONTEXT_NP: ${{ inputs.kube_context }}
+        AZURE_CLIENT_ID_PROD: ${{ inputs.azure_client_id_prod }}
+        AZURE_CLIENT_SECRET_PROD: ${{ inputs.azure_client_secret_prod }}
+        AZURE_TENANT_ID_PROD: ${{ inputs.azure_tenant_id_prod }}
+        RG_P: ${{ inputs.rg_prod }}
+        AZURE_ACR_NAME_P: ${{ inputs.azure_acr_name_prod }}
+        KUBE_CONTEXT_P: ${{ inputs.kube_context_prod }}
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        ver: ${{ inputs.ver }}
+        e: ${{ inputs.e }}
+      shell: bash
+      run: ${GITHUB_ACTION_PATH}/helm.sh

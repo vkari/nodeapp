@@ -1,0 +1,50 @@
+name: Build JAVA app using maven
+description: GitHub Action to build JAVA application and upload (deploy) it to Nexus
+
+inputs:
+  java_version:
+    description: 'JAVA version'
+    default: 21
+  gh_user:
+    description: 'GH_USER org secret'
+    type: string
+  gh_token:
+    description: 'GH_TOKEN org secret'
+    type: string
+  azure_client_id:
+    description: 'AZURE_CLIENT_ID org secret'
+    type: string
+  azure_client_secret:
+    description: 'AZURE_CLIENT_SECRET org secret'
+    type: string
+  azure_tenant_id:
+    description: 'AZURE_TENANT_ID org secret'
+    type: string
+  azure_acr_name:
+    description: 'AZURE_ACR_NAME'
+    type: string
+  ver:
+    description: 'image version'
+    type: string
+  dockerfile:
+    description: 'Choose Dockerfile for build'
+    default: 'Dockerfile'
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Maven
+      id: run-maven
+      env:
+        GH_USER: ${{ inputs.gh_user }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        AZURE_CLIENT_ID: ${{ inputs.azure_client_id }}
+        AZURE_CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        AZURE_ACR_NAME: ${{ inputs.azure_acr_name }}
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        ver: ${{ inputs.ver }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+      shell: bash
+      run: ${GITHUB_ACTION_PATH}/maven.sh

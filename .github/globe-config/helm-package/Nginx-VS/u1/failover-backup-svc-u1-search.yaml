@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: failover-backup-svc
+  namespace: ecom-svc-u1a
+spec:
+  externalName: tscu1b-searchsvc.ecom-svc-u1b.svc.cluster.local
+  sessionAffinity: None
+  type: ExternalName

@@ -1,0 +1,22 @@
+name: Get Runner System Packages Ready
+description: GitHub Action to install the needed Linux packages
+
+#inputs:
+#  vault:
+#    description: "Certificate Vault DNS Name"
+#    default: "tsckvecmeu2np01"
+#    #default: ${{ startsWith(runner.name, 'arc-runner-set-uw1') && 'kv-main' || 'kv-main' }}
+#  certificates:
+#    description: "Space-separated list of secrets to fetch"
+#    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: get-packages-shell
+      id: get-packages-shell
+      #env:
+      #  INPUT_VAULT: ${{ inputs.vault }}
+      #  INPUT_CERTIFICATES: ${{ inputs.certificates }}
+      run: ${GITHUB_ACTION_PATH}/install-packages.sh
+      shell: bash

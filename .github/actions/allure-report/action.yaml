@@ -1,0 +1,6 @@
+name: Allure Report
+runs:
+  using: "composite"
+  steps:
+    - name: Generate Allure Report
+      run: echo "Generating Allure report..."

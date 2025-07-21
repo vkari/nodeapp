@@ -1,0 +1,25 @@
+name: Get Maven Artifact Details
+description: Get Maven Artifact Details
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get Maven Artifact Details
+      id: get-version
+      run: |
+        if [[ -s version.txt ]]; then
+          grep maven_ version.txt >> "${GITHUB_OUTPUT}";
+        else
+          grep maven_ target/classes/version.properties >> "${GITHUB_OUTPUT}";
+        fi
+      shell: bash
+
+outputs:
+  maven_group:
+    value: ${{ steps.get-version.outputs.maven_group }}
+  maven_artifact:
+    value: ${{ steps.get-version.outputs.maven_artifact }}
+  maven_version:
+    value: ${{ steps.get-version.outputs.maven_version }}
+  maven_packaging:
+    value: ${{ steps.get-version.outputs.maven_packaging }}

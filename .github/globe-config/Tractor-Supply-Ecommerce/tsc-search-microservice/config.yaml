@@ -1,0 +1,120 @@
+app:
+  maven:
+    cd: true
+    enabled: true
+    appType: maven
+    publishGit: false
+    mavenVersion: "3.9.11"
+    javaVersion: "21"
+    mavenArgs: clean install package -Dserver.GH_USER=${GH_USER} -Dserver.GH_TOKEN=${GH_TOKEN} -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -s settings.xml
+
+  sonar:
+    enabled: true
+    sonarProjectName: tsc-search-microservice
+
+acr:
+  prod: tsccrecmp01
+  nonprod: tsccrecmnp01
+
+enableRegression:
+  enabled: true
+  jdk_version: openjdk17
+  d2:
+    mavenGoal: clean test -Denv=d2
+  q2:
+    mavenGoal: clean test -Denv=q2
+  q1:
+    mavenGoal: clean test -Denv=q1
+  q3:
+    mavenGoal: clean test -Denv=q3
+
+deploy:
+  default_environments: d1
+  dryrun: false
+  verbose: false
+  autoDeployBranches:
+    develop:
+      env:
+        - d1
+      autoDeploy: true
+    M2025.SRC.06.00:
+      env:
+        - d1
+        - q1
+      autoDeploy: true
+    M2025.SRC.07.00:
+      env:
+        - d2
+        - q2
+      autoDeploy: true
+  spaces:
+    d1:
+      port: 8080
+      namespace: ecom-svc-d1
+      host: bqs-d1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    d2:
+      port: 8080
+      namespace: ecom-svc-d2
+      host: bqs-d2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    d3:
+      port: 8080
+      namespace: ecom-svc-d3
+      host: bqs-d3.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    q1:
+      port: 8080
+      namespace: ecom-svc-q1
+      host: bqs-q1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    q2:
+      port: 8080
+      namespace: ecom-svc-q2
+      host: bqs-q2.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    q3:
+      port: 8080
+      namespace: ecom-svc-q3
+      host: bqs-q3.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    u1a:
+      port: 8080
+      namespace: ecom-svc-u1a
+      host: bqs-u1a.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    u1b:
+      port: 8080
+      namespace: ecom-svc-u1b
+      host: bqs-u1b.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    p1:
+      port: 8080
+      namespace: ecom-svc-p1
+      host: bqs-p1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+  production:
+    default_environments: prodb
+    dryrun: false
+    verbose: false
+    spaces:
+      proda:
+        port: 8080
+        namespace: ecom-svc-proda
+        host: bqs-proda.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+      prodb:
+        port: 8080
+        namespace: ecom-svc-prodb
+        host: bqs-prodb.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+      prod:
+        port: 8080
+        namespace: ecom-svc-prod
+        host: bqs-prod.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-centralus-01
+
+features:
+  akamaiCacheClear: false
+  redisCacheClear: false
+  scanning: false

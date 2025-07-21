@@ -1,0 +1,76 @@
+app:
+  node:
+    enabled: true
+    appType: nodejs
+    nodeVersion: "20.12.0"
+    publishGit: true
+    nodeInstallArgs: pnpm install --prefer-offline --frozen-lockfile
+    nodeBuildArgs: pnpm run build && pnpm build:storybook
+    nodeTestArgs: pnpm test
+  sonar:
+    enabled: true
+    sonarProjectName: tsc-storybook-design-system
+
+acr:
+  prod: tsccrecmp01
+  nonprod: tsccrecmnp01
+
+enableRegression:
+  enabled: true
+  jdk_version: openjdk17
+  d2:
+    mavenGoal: clean test -Denv=d2
+  q2:
+    mavenGoal: clean test -Denv=q2
+  q1:
+    mavenGoal: clean test -Denv=q1
+  q3:
+    mavenGoal: clean test -Denv=q3
+
+deploy:
+  default_environments: d2
+  dryrun: false
+  verbose: false
+  autoDeployBranches:
+    develop:
+      env:
+        - u1a
+      autoDeploy: true
+#    develop:
+#      env:
+#        - d2
+#      autoDeploy: true
+  spaces:
+    d2:
+      port: 8080
+      namespace: ecom-react-d2
+      host: bqs-d1.priv.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+    u1a:
+      port: 8080
+      namespace: ecom-react-u1a
+      host: designhub.shop.tractorsupply.com
+      cluster: aks-wcs-n-eastus2-01
+  production:
+    default_environments: prodb
+    spaces:
+      proda:
+        port: 8080
+        namespace: ecom-react-proda
+        host: bqs-proda.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+      prodb:
+        port: 8080
+        namespace: ecom-react-prodb
+        host: bqs-prodb.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-eastus2-01
+      prod:
+        port: 8080
+        namespace: ecom-react-prod
+        host: bqs-prod.priv.shop.tractorsupply.com
+        cluster: aks-wcs-p-centralus-01
+
+features:
+  akamaiCacheClear: false
+  redisCacheClear: false
+  scanning: false

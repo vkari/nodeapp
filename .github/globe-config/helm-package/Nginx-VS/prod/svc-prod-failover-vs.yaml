@@ -1,0 +1,29 @@
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: svc-prod-failover-vs
+  namespace: ecom-svc-proda
+spec:
+  host: priv-prod-src-srv-eu2.shop.tractorsupply.com
+  routes:
+  - path: /
+    splits:
+    - action:
+        pass: primary-svc
+      weight: 100
+    - action:
+        pass: secondary-svc
+      weight: 0
+  tls:
+    secret: tscproda-searchsvc
+  upstreams:
+  - name: primary-svc
+    port: 8443
+    service: tscproda-searchsvc
+    tls:
+      enable: true
+  - name: secondary-svc
+    port: 8443
+    service: failover-backup-svc
+    tls:
+      enable: true

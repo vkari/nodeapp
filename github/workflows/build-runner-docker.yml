@@ -1,0 +1,101 @@
+name: Build and test Docker image for runners
+on:
+  workflow_dispatch:
+
+jobs:
+  build-docker-runner:
+    runs-on: [self-hosted]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      
+      - name: build Docker image
+        id: build-docker-image
+        with:
+          gh_user: ${{ secrets.gh_user }}
+          gh_token: ${{ secrets.gh_token }}
+          azure_client_id: ${{ secrets.azure_client_id }}
+          azure_client_secret: ${{ secrets.azure_client_secret }}
+          azure_tenant_id: ${{ secrets.azure_tenant_id }}
+          #azure_acr_name: ${{ inputs.azure_acr_name }}
+        uses: Tractor-Supply-Ecommerce/tsc-devops-actions/.github/actions/run-build-docker-runner@main
+
+  test-docker-runner-azcli:
+    needs: [build-docker-runner]
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven-azcli:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    steps:
+      - name: 'Test tools in the Docker image for runner'
+        run: |
+          echo "[DEBUG] confirm OS version"
+          lsb_release -a
+          echo "[DEBUG] check az cli version"
+          az --version
+          echo "[DEBUG] check kubelogin"
+          kubelogin --version
+          echo "[DEBUG] check sonar-scanner"
+          sonar-scanner --version
+          echo "[DEBUG] check allure"
+          allure --version
+          echo "[DEBUG] check docker"
+          docker version
+          echo "[DEBUG] check helm"
+          helm version
+          echo "[DEBUG] check jq"
+          jq --version
+          echo "[DEBUG] check nodejs"
+          node --version
+    
+  test-docker-runner-maven:
+    needs: [build-docker-runner]
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-maven:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    steps:
+      - name: 'Test tools in the Docker image for runner'
+        run: |
+          echo "[DEBUG] confirm OS version"
+          lsb_release -a
+          echo "[DEBUG] check kubelogin"
+          kubelogin --version
+          echo "[DEBUG] check sonar-scanner"
+          sonar-scanner --version
+          echo "[DEBUG] check allure"
+          allure --version
+          echo "[DEBUG] check docker"
+          docker version
+          echo "[DEBUG] check helm"
+          helm version
+          echo "[DEBUG] check jq"
+          jq --version
+          echo "[DEBUG] check nodejs"
+          node --version
+
+  test-docker-runner-helm:
+    needs: [build-docker-runner]
+    runs-on: [self-hosted]
+    container:
+      image: tsccrecmnp01.azurecr.io/tsc-devops-actions/gha-runner-helm:latest
+      credentials:
+        username: ${{ secrets.azure_client_id }}
+        password: ${{ secrets.azure_client_secret }}
+    steps:
+      - name: 'Test tools in the Docker image for runner'
+        run: |
+          echo "[DEBUG] confirm OS version"
+          lsb_release -a
+          echo "[DEBUG] check kubelogin"
+          kubelogin --version
+          echo "[DEBUG] check docker"
+          docker version
+          echo "[DEBUG] check helm"
+          helm version
+          echo "[DEBUG] check jq"
+          jq --version

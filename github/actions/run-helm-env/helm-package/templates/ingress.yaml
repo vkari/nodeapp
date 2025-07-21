@@ -1,0 +1,39 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+  generation: 1
+  labels:
+    app: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+  name: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+  namespace: {{ .Values.service.namespace }}
+spec:
+  ingressClassName: nginx-plus
+  rules:
+  - host: {{ $.Values.ingress.primaryHost }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+            port:
+              number: {{ $.Values.service.port }}
+        path: /
+        pathType: ImplementationSpecific
+  - host: {{ $.Values.ingress.secondaryHost }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+            port:
+              number: {{ $.Values.service.port }}
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - {{ $.Values.ingress.primaryHost }}
+    - {{ $.Values.ingress.secondaryHost }}
+    secretName:  {{ $.Values.ingress.secretname }}
+{{- end }}
