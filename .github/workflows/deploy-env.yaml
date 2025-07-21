@@ -265,6 +265,23 @@ jobs:
               auto_merge: false
             });
             return deployment.data.id;
+
+      - name: 🛠️ Install Azure CLI
+        if: ${{ startsWith(inputs.environment, 'prod') }}
+        run: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: 🔄 Promote Docker Image if Needed
+        if: ${{ startsWith(inputs.environment, 'prod') }}
+        run: python3 .github/scripts/docker_promote.py
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_PROD }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_PROD }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID_PROD }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}
+          NONPROD_ACR: ${{ secrets.ACR_NONPROD }}
+          PROD_ACR: ${{ env.AZURE_CONTAINER_NAME }}
+          IMAGE_PATH: ${{ env.REPO_NAME }}
+          DOCKER_TAG: ${{ inputs.docker_tag }}
       
       - name: 🚢 Deploy with Helm (Prod)
         if: ${{ startsWith(inputs.environment, 'prod') }}
