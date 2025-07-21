@@ -38,6 +38,8 @@ inputs:
   port:
     required: false
     default: 8080
+  splunk_token:
+    required: true
 
 runs:
   using: "composite"
@@ -63,6 +65,7 @@ runs:
         echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
         echo "VERSION_LOCAL=1.0.0" >> $GITHUB_ENV
         echo "DEPLOY_ENV=${{ inputs.environment }}" >> $GITHUB_ENV
+        echo "SPLUNK_TOKEN=${{ inputs.splunk_token }}" >> $GITHUB_ENV
         echo "DEBUG: CHART_OVERRIDE_PATH=$CHART_OVERRIDE_PATH"
         echo "DEBUG: DEPLOY_ENV=$DEPLOY_ENV"
         echo "APP_TYPE=${{ inputs.app_type }}" >> $GITHUB_ENV
@@ -121,9 +124,10 @@ runs:
         update_values() {
           local VALUES_FILE=$1
           sed -i "s|namespace:.*|namespace: $K8S_NAMESPACE|" "$VALUES_FILE"
-          sed -i "s|registry:.*|registry: $AZURE_CONTAINER_REGISTRY/$REPO_NAME|" "$VALUES_FILE"
-          sed -i "s|tag:.*|tag: $DOCKER_TAG|" "$VALUES_FILE"
-          if [[ "$APP_TYPE" == "nodejs" ]] && [[ "$REPO_NAME" != "tsc-storybook-design-system" ]]; then
+        sed -i "s|registry:.*|registry: $AZURE_CONTAINER_REGISTRY/$REPO_NAME|" "$VALUES_FILE"
+        sed -i "s|tag:.*|tag: $DOCKER_TAG|" "$VALUES_FILE"
+        sed -i "s|token:.*|token: $SPLUNK_TOKEN|" "$VALUES_FILE"
+        if [[ "$APP_TYPE" == "nodejs" ]] && [[ "$REPO_NAME" != "tsc-storybook-design-system" ]]; then
             sed -i "s|appPort:.*|appPort: 3000|" "$VALUES_FILE"
             echo "React app detected - setting appPort to 3000"
           else
