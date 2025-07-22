@@ -108,7 +108,7 @@ splunk:
   index: ecom-react-prod
   name: splunk-otel-agent
   endpoint: https://http-inputs-tractorsupplyecom.splunkcloud.com:443/services/collector
-  token: "NDg0M2UyNDAtYjFlNC00MGNlLTllOTctNjJjMmU2YmQ0Zjhi"
+  token: ""
   source: kubernetes
   maxConnections: 200
   disableCompression: true
