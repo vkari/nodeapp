@@ -6,5 +6,11 @@ Configure the following secrets in your repository settings:
 
 - `SPLUNK_TOKEN_PROD` – used for production deployments
 - `SPLUNK_TOKEN_NONPROD` – used for non‑production deployments
+- `AKAMAI_EDGERC` – contents of the Akamai credentials file used when purging cache
 
 These values are passed to the deploy workflows and written into Helm values at runtime.
+
+When `akamaiCacheClear` is enabled in the trusted configuration, the workflow
+purges Akamai cache using the `aem_env` value from the environment's
+`config.yaml`. This value is exposed as the `AEM_ENV` environment variable and
+is passed to the purge script automatically.
