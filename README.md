@@ -14,3 +14,6 @@ When `akamaiCacheClear` is enabled in the trusted configuration, the workflow
 purges Akamai cache using the `cp_codes` defined for the deployment environment
 in its `config.yaml`. These codes are exposed via the `AKAMAI_CP_CODES`
 environment variable and passed to the purge script automatically.
+
+If the feature flag is omitted, cache clearing defaults to **enabled** for
+non-production environments and **disabled** for production deployments.

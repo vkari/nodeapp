@@ -152,6 +152,5 @@ deploy:
           - '1133357'
 
 features:
-  akamaiCacheClear: false
   redisCacheClear: false
   scanning: false

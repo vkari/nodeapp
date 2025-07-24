@@ -124,6 +124,5 @@ deploy:
         aem_env: p34468-e143101
 
 features:
-  akamaiCacheClear: false
   redisCacheClear: false
   scanning: false

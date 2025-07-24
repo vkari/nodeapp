@@ -120,6 +120,10 @@ resolved_config["environment"] = environment
 resolved_config["autoDeploy"] = auto_deploy
 resolved_config["deployEnvs"] = envs
 
+# Set default Akamai cache clear based on environment when not explicitly defined
+if "akamaiCacheClear" not in features:
+    resolved_config["akamaiCacheClear"] = not str(environment).startswith("p")
+
 print(f"🚀 Auto Deploy Enabled: {auto_deploy}")
 print(f"🌍 Target Environments: {envs}")
 skip_quality_gate = False
