@@ -1,0 +1,30 @@
+name: Akamai Cache Clear
+
+description: Purge Akamai cache for configured CP codes
+
+inputs:
+  environment:
+    description: Target environment name
+    required: true
+  edgerc:
+    description: Contents of edgerc credentials file
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      shell: bash
+      run: pip install requests akamai-edgegrid
+    - name: Write edgerc
+      shell: bash
+      run: |
+        echo "${{ inputs.edgerc }}" > ~/.edgerc.txt
+    - name: Purge Akamai cache
+      shell: bash
+      run: |
+        python ${{ github.action_path }}/cache_clear.py "${{ inputs.environment }}"

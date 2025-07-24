@@ -134,6 +134,7 @@ runs:
         echo "DEPLOY_ENV=$ACR_ENV" >> $GITHUB_ENV
         echo "NEXT_AEM=${{ steps.config.outputs.aemEnv }}" >> $GITHUB_ENV
         echo "AEM_ENV=${{ steps.config.outputs.aemEnv }}" >> $GITHUB_ENV
+        echo "AKAMAI_CP_CODES=${{ steps.config.outputs.cpCodes }}" >> $GITHUB_ENV
         echo "SKIP_QUALITY_GATE=${{ steps.config.outputs.skipQualityGate }}" >> $GITHUB_ENV
 
         rm -f secrets.json
