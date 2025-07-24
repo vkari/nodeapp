@@ -91,7 +91,7 @@ resolved_config.update({
     "cd": app_node.get("cd", False) or app_maven.get("cd", False),
     "publishGit": app_maven.get("publishGit") or app_node.get("publishGit", False),
     "sonarProjectName": app_sonar.get("sonarProjectName", ""),
-    "akamaiCacheClear": features.get("akamaiCacheClear", False),
+    "akamaiCacheClear": False,
     "redisCacheClear": features.get("redisCacheClear", False),
     "scanning": features.get("scanning", False),
     "acrProd": acr.get("prod", ""),
@@ -120,9 +120,18 @@ resolved_config["environment"] = environment
 resolved_config["autoDeploy"] = auto_deploy
 resolved_config["deployEnvs"] = envs
 
-# Set default Akamai cache clear based on environment when not explicitly defined
-if "akamaiCacheClear" not in features:
-    resolved_config["akamaiCacheClear"] = not str(environment).startswith("p")
+# === Determine Akamai Cache Clear Flag ===
+env_clear_flag = None
+if environment in deploy.get("production", {}).get("spaces", {}):
+    env_clear_flag = deploy.get("production", {}).get("akamaiCacheClear")
+else:
+    env_clear_flag = deploy.get("akamaiCacheClear")
+
+flag = not str(environment).startswith("p") if env_clear_flag is None else env_clear_flag
+if "akamaiCacheClear" in features:
+    flag = features.get("akamaiCacheClear")
+
+resolved_config["akamaiCacheClear"] = flag
 
 print(f"🚀 Auto Deploy Enabled: {auto_deploy}")
 print(f"🌍 Target Environments: {envs}")

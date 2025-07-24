@@ -36,6 +36,7 @@ deploy:
   default_environments: d2
   dryrun: false
   verbose: false
+  akamaiCacheClear: true
   autoDeployBranches:
     develop:
       env:
@@ -125,6 +126,9 @@ deploy:
         - '1133341'
   production:
     default_environments: prodb
+    akamaiCacheClear: false
+    dryrun: true
+    verbose: true
     spaces:
       proda:
         port: 3000
