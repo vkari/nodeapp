@@ -56,54 +56,73 @@ deploy:
       host: bqs-d1.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e129107
+      cp_codes:
+        - '1097554'
     d2:
       port: 3000
       namespace: ecom-react-d2
       host: bqs-d2.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e202004
+      cp_codes:
+        - '1142229'
+        - '928079'
     d3:
       port: 3000
       namespace: ecom-react-d3
       host: bqs-d3.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e253452
+      cp_codes:
+        - '1142247'
     q1:
       port: 3000
       namespace: ecom-react-q1
       host: bqs-q1.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e129107
+      cp_codes:
+        - '1133341'
     q2:
       port: 3000
       namespace: ecom-react-q2
       host: bqs-q2.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e713253
+      cp_codes:
+        - '1142245'
     q3:
       port: 3000
       namespace: ecom-react-q3
       host: bqs-q3.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e253452
+      cp_codes:
+        - '1142247'
     u1a:
       port: 3000
       namespace: ecom-react-u1a
       host: bqs-u1a.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e221276
+      cp_codes:
+        - '1133345'
     u1b:
       port: 3000
       namespace: ecom-react-u1b
       host: bqs-u1b.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e221276
+      cp_codes:
+        - '1133345'
     p1:
       port: 3000
       namespace: ecom-react-p1
       host: bqs-p1.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
       aem_env: p34468-e143152
+      cp_codes:
+        - '1133341'
   production:
     default_environments: prodb
     spaces:
@@ -113,18 +132,24 @@ deploy:
         host: bqs-proda.priv.shop.tractorsupply.com
         cluster: aks-wcs-p-eastus2-01
         aem_env: p34468-e143101
+        cp_codes:
+          - '1133357'
       prodb:
         port: 3000
         namespace: ecom-react-prodb
         host: bqs-prodb.priv.shop.tractorsupply.com
         cluster: aks-wcs-p-eastus2-01
         aem_env: p34468-e143101
+        cp_codes:
+          - '1133357'
       prod:
         port: 3000
         namespace: ecom-react-prod
         host: bqs-prod.priv.shop.tractorsupply.com
         cluster: aks-wcs-p-centralus-01
         aem_env: p34468-e143101
+        cp_codes:
+          - '1133357'
 
 features:
   akamaiCacheClear: false

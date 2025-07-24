@@ -11,6 +11,6 @@ Configure the following secrets in your repository settings:
 These values are passed to the deploy workflows and written into Helm values at runtime.
 
 When `akamaiCacheClear` is enabled in the trusted configuration, the workflow
-purges Akamai cache using the `aem_env` value from the environment's
-`config.yaml`. This value is exposed as the `AEM_ENV` environment variable and
-is passed to the purge script automatically.
+purges Akamai cache using the `cp_codes` defined for the deployment environment
+in its `config.yaml`. These codes are exposed via the `AKAMAI_CP_CODES`
+environment variable and passed to the purge script automatically.

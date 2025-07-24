@@ -167,6 +167,7 @@ resolved_config["namespace"] = space.get("namespace")
 cluster = space.get("cluster", "")
 resolved_config["cluster"] = cluster
 resolved_config["aem_env"] = space.get("aem_env", "")
+resolved_config["akamai_cp_codes"] = space.get("cp_codes", [])
 
 # === Resource Group Logic derived from cluster
 resourcegroup = space.get("resourcegroup")
@@ -205,5 +206,6 @@ if output_file:
         f.write(f"deployEnvsJson={json.dumps(envs)}\n")
         f.write(f"autoDeploy={str(auto_deploy).lower()}\n")
         f.write(f"aemEnv={space.get('aem_env', '')}\n")
+        f.write(f"cpCodes={json.dumps(space.get('cp_codes', []))}\n")
         f.write(f"buildDeploy={str(app_node.get('buildDeploy', False) or app_maven.get('buildDeploy', False)).lower()}\n")
         f.write(f"skipQualityGate={str(resolved_config.get('skipQualityGate', False)).lower()}\n")
