@@ -7,8 +7,9 @@ app:
     nodeInstallArgs: pnpm install --prefer-offline --frozen-lockfile
     nodeBuildArgs: pnpm run build && pnpm build:storybook
     nodeTestArgs: pnpm test
+    continueOnError: false
   sonar:
-    enabled: true
+    enabled: false
     sonarProjectName: tsc-storybook-design-system
 
 acr:

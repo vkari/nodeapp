@@ -9,9 +9,11 @@ app:
     nodeInstallArgs: pnpm install --no-frozen-lockfile && pnpm audit fix || true
     nodeBuildArgs: pnpm run build
     nodeTestArgs: pnpm test:coverage
+    continueOnError: false
   sonar:
     enabled: false
     sonarProjectName: tsc-nextjs-homepage
+    skipQualityGate:
 
 acr:
   prod: tsccrecmp01

@@ -95,6 +95,17 @@ on:
         required: false
       SOURCE_KV_URL_NONPROD:
         required: false
+      NS_HOST_NAME:
+        required: false
+      NS_API_KEY:
+        required: false
+      NS_ACCOUNT_NAME:
+        required: false
+      NS_STATICASSESTS_CP_CODE:
+        required: false
+      UNIQUE_CLIENT_ID:
+        required: false
+
 
 
 
@@ -171,6 +182,7 @@ jobs:
           nodeInstallArgs: ${{ steps.trusted.outputs.nodeInstallArgs }}
           nodeBuildArgs: ${{ steps.trusted.outputs.nodeBuildArgs }}
           nodeTestArgs: ${{ steps.trusted.outputs.nodeTestArgs }}
+          nodeContinueOnError: ${{ steps.trusted.outputs.nodeContinueOnError }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_USER: ${{ secrets.GH_USER }}
           SOURCE_KV_URL: ${{ secrets.SOURCE_KV_URL_NONPROD }}
@@ -322,15 +334,15 @@ jobs:
               state: 'success',
               environment: "${{ inputs.environment }}"
             });
-      - name: 🗑️ Clean Actions caches
-        if: always()
-        continue-on-error: true
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GH_TOKEN }}
-          script: |
-            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-            await github.request('DELETE /repos/{owner}/{repo}/actions/caches', {
-              owner,
-              repo
-            });
+#      - name: 🗑️ Clean Actions caches
+#        if: always()
+#        continue-on-error: true
+#        uses: actions/github-script@v7
+#        with:
+#          github-token: ${{ secrets.GH_TOKEN }}
+#          script: |
+#            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+#            await github.request('DELETE /repos/{owner}/{repo}/actions/caches', {
+#              owner,
+#              repo
+#            });

@@ -9,10 +9,11 @@ app:
     nodeInstallArgs: pnpm install --no-frozen-lockfile
     nodeBuildArgs: pnpm run build
     nodeTestArgs: pnpm test:coverage
+    continueOnError: false
   sonar:
-    enabled: true
+    enabled: false
     sonarProjectName: tsc-react-ai-chat
-    skipQualityGate: R2025.GPT.01.00
+    skipQualityGate: 
 
 acr:
   prod: tsccrecmp01

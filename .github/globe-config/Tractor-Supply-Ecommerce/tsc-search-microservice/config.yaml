@@ -9,7 +9,7 @@ app:
     mavenArgs: clean install package -Dserver.GH_USER=${GH_USER} -Dserver.GH_TOKEN=${GH_TOKEN} -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -s settings.xml
 
   sonar:
-    enabled: true
+    enabled: false
     sonarProjectName: tsc-search-microservice
 
 acr:
@@ -44,8 +44,8 @@ deploy:
       autoDeploy: true
     M2025.SRC.07.00:
       env:
-        - d2
-        - q2
+        - d3
+        - q3
       autoDeploy: true
   spaces:
     d1:

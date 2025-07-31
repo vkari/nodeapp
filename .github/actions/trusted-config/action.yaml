@@ -46,6 +46,8 @@ outputs:
     value: ${{ steps.config.outputs.nodeTestArgs }}
   sonarProjectName:
     value: ${{ steps.config.outputs.sonarProjectName }}
+  nodeContinueOnError:
+    value: ${{ steps.config.outputs.nodeContinueOnError }}
   acrProd:
     value: ${{ steps.config.outputs.acrProd }}
   acrNonProd:

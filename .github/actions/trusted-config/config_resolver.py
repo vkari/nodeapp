@@ -94,6 +94,7 @@ resolved_config.update({
     "akamaiCacheClear": features.get("akamaiCacheClear", False),
     "redisCacheClear": features.get("redisCacheClear", False),
     "scanning": features.get("scanning", False),
+    "nodeContinueOnError": app_node.get("continueOnError", False),
     "acrProd": acr.get("prod", ""),
     "acrNonprod": acr.get("nonprod", ""),
     "manualProdApproval": manual_cfg.get("prod", False),
@@ -207,3 +208,4 @@ if output_file:
         f.write(f"aemEnv={space.get('aem_env', '')}\n")
         f.write(f"buildDeploy={str(app_node.get('buildDeploy', False) or app_maven.get('buildDeploy', False)).lower()}\n")
         f.write(f"skipQualityGate={str(resolved_config.get('skipQualityGate', False)).lower()}\n")
+        f.write(f"nodeContinueOnError={str(app_node.get('continueOnError', False)).lower()}\n")

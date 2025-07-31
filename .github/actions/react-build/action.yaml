@@ -34,6 +34,17 @@ inputs:
     description: 'Load secrets from Azure Key Vault'
     required: false
     default: 'true'
+  NS_HOST_NAME:
+    required: false
+  NS_API_KEY:
+    required: false
+  NS_ACCOUNT_NAME:
+    required: false
+  NS_STATICASSESTS_CP_CODE:
+    required: false
+  UNIQUE_CLIENT_ID:
+    required: false
+
 
 runs:
   using: "composite"
@@ -58,6 +69,7 @@ runs:
         echo "NODE_INSTALL_ARGS=${{ inputs.node_install_args }}" >> $GITHUB_ENV
         echo "NODE_BUILD_ARGS=${{ inputs.node_build_args }}" >> $GITHUB_ENV
         echo "NODE_TEST_ARGS=${{ inputs.node_test_args }}" >> $GITHUB_ENV
+        echo "NODE_CONTINUE_ON_ERROR=${NODE_CONTINUE_ON_ERROR}" >> $GITHUB_ENV
     - name: 🚮 Configure Node Memory
       shell: bash
       run: |
@@ -175,7 +187,7 @@ runs:
 
     - name: Run tests
       shell: bash
-      # continue-on-error: true
+      continue-on-error: ${{ env.NODE_CONTINUE_ON_ERROR == 'true' }}
       run: |
         if [ -n "${nodeTestArgs}" ]; then
           echo "🧪 Running tests with: $nodeTestArgs"

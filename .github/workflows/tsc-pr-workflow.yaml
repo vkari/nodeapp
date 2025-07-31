@@ -156,6 +156,7 @@ jobs:
           nodeInstallArgs: ${{ steps.trusted.outputs.nodeInstallArgs }}
           nodeBuildArgs: ${{ steps.trusted.outputs.nodeBuildArgs }}
           nodeTestArgs: ${{ steps.trusted.outputs.nodeTestArgs }}
+          nodeContinueOnError: ${{ steps.trusted.outputs.nodeContinueOnError }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_USER: ${{ secrets.GH_USER }}
           SOURCE_KV_URL: ${{ secrets.SOURCE_KV_URL_NONPROD }}

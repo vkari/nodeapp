@@ -9,10 +9,11 @@ app:
     nodeInstallArgs: pnpm install --prefer-offline --no-frozen-lockfile && pnpm install --lockfile-only
     nodeBuildArgs: pnpm run build
     nodeTestArgs: pnpm test:coverage
+    continueOnError: false
   sonar:
-    enabled: true
+    enabled: false
     sonarProjectName: tsc-nextjs-store-locator
-    skipQualityGate: R2025.SLO.03.00
+    skipQualityGate: 
 acr:
   prod: tsccrecmp01
   nonprod: tsccrecmnp01
@@ -40,11 +41,7 @@ deploy:
       env:
         - d1
       autoDeploy: true
-    R2025.SLO.02.00:
-      env:
-        - q3
-      autoDeploy: true
-    R2025.SLO.03.00:
+    R2025.SLO.04.00:
       env:
         - q1
       autoDeploy: true

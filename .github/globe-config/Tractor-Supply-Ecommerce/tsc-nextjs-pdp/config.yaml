@@ -9,6 +9,7 @@ app:
     nodeInstallArgs: pnpm install --prefer-offline --no-frozen-lockfile && pnpm install --lockfile-only
     nodeBuildArgs: pnpm run build
     nodeTestArgs: pnpm test:coverage
+    continueOnError: false
   sonar:
     enabled: false
     sonarProjectName: tsc-nextjs-pdp
@@ -45,7 +46,7 @@ deploy:
       env:
         - q3
       autoDeploy: true
-    R2025.PDP.14.00:
+    R2025.PDP.16.00:
       env:
         - q1
       autoDeploy: true
