@@ -11,7 +11,7 @@ app:
     nodeTestArgs: pnpm test:coverage
     continueOnError: false
   sonar:
-    enabled: false
+    enabled: true
     sonarProjectName: tsc-nextjs-myaccount
     skipQualityGate:
 acr:
@@ -41,7 +41,7 @@ deploy:
       env:
         - d1
       autoDeploy: true
-    R2025.ACT.08.00:
+    R2025.ACT.10.00:
       env:
         - q3
       autoDeploy: true

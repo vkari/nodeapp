@@ -1,16 +1,19 @@
 app:
-  maven:
+  node:
     cd: true
     enabled: true
-    appType: maven
+    buildDeploy: true
+    appType: nodejs
+    nodeVersion: "20.19.2"
     publishGit: false
-    mavenVersion: "3.9.11"
-    javaVersion: "21"
-    mavenArgs: clean install package -Dserver.GH_USER=${GH_USER} -Dserver.GH_TOKEN=${GH_TOKEN} -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -s settings.xml
-
+    nodeInstallArgs: pnpm install --no-frozen-lockfile && pnpm audit fix || true
+    nodeBuildArgs: pnpm run build
+    nodeTestArgs: pnpm test:coverage
+    continueOnError: true
   sonar:
     enabled: true
-    sonarProjectName: tsc-product-graphql-api
+    sonarProjectName: tsc-nextjs-returnsverification
+    skipQualityGate:
 
 acr:
   prod: tsccrecmp01
@@ -29,7 +32,7 @@ enableRegression:
     mavenGoal: clean test -Denv=q3
 
 deploy:
-  default_environments: d1
+  default_environments: d2
   dryrun: false
   verbose: false
   autoDeployBranches:
@@ -37,77 +40,90 @@ deploy:
       env:
         - d1
       autoDeploy: true
-    M2025.BFF.03.00:
+    R2025.HOM.09.00:
       env:
-        - d3
         - q3
+      autoDeploy: true
+    R2025.HOM.08.00:
+      env:
+        - q1
       autoDeploy: true
   spaces:
     d1:
-      port: 8080
-      namespace: ecom-svc-d1
+      port: 3000
+      namespace: ecom-react-d1
       host: bqs-d1.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e129107
     d2:
-      port: 8080
-      namespace: ecom-svc-d2
+      port: 3000
+      namespace: ecom-react-d2
       host: bqs-d2.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e202004
     d3:
-      port: 8080
-      namespace: ecom-svc-d3
+      port: 3000
+      namespace: ecom-react-d3
       host: bqs-d3.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e253452
     q1:
-      port: 8080
-      namespace: ecom-svc-q1
+      port: 3000
+      namespace: ecom-react-q1
       host: bqs-q1.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e129107
     q2:
-      port: 8080
-      namespace: ecom-svc-q2
+      port: 3000
+      namespace: ecom-react-q2
       host: bqs-q2.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e713253
     q3:
-      port: 8080
-      namespace: ecom-svc-q3
+      port: 3000
+      namespace: ecom-react-q3
       host: bqs-q3.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e253452
     u1a:
-      port: 8080
-      namespace: ecom-svc-u1a
+      port: 3000
+      namespace: ecom-react-u1a
       host: bqs-u1a.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e221276
     u1b:
-      port: 8080
-      namespace: ecom-svc-u1b
+      port: 3000
+      namespace: ecom-react-u1b
       host: bqs-u1b.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e221276
     p1:
-      port: 8080
-      namespace: ecom-svc-p1
+      port: 3000
+      namespace: ecom-react-p1
       host: bqs-p1.priv.shop.tractorsupply.com
       cluster: aks-wcs-n-eastus2-01
+      aem_env: p34468-e143152
   production:
     default_environments: prodb
-    dryrun: true
-    verbose: true
     spaces:
       proda:
-        port: 8080
-        namespace: ecom-svc-proda
+        port: 3000
+        namespace: ecom-react-proda
         host: bqs-proda.priv.shop.tractorsupply.com
         cluster: aks-wcs-p-eastus2-01
+        aem_env: p34468-e143101
       prodb:
-        port: 8080
-        namespace: ecom-svc-prodb
+        port: 3000
+        namespace: ecom-react-prodb
         host: bqs-prodb.priv.shop.tractorsupply.com
         cluster: aks-wcs-p-eastus2-01
+        aem_env: p34468-e143101
       prod:
-        port: 8080
-        namespace: ecom-svc-prod
+        port: 3000
+        namespace: ecom-react-prod
         host: bqs-prod.priv.shop.tractorsupply.com
         cluster: aks-wcs-p-centralus-01
+        aem_env: p34468-e143101
 
 features:
   akamaiCacheClear: false

@@ -9,7 +9,7 @@ app:
     mavenArgs: clean install package -Dserver.GH_USER=${GH_USER} -Dserver.GH_TOKEN=${GH_TOKEN} -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -s settings.xml
 
   sonar:
-    enabled: false
+    enabled: true
     sonarProjectName: tsc-storeservices
 
 acr:

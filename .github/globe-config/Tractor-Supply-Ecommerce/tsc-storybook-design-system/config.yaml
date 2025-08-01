@@ -9,7 +9,7 @@ app:
     nodeTestArgs: pnpm test
     continueOnError: false
   sonar:
-    enabled: false
+    enabled: true
     sonarProjectName: tsc-storybook-design-system
 
 acr:

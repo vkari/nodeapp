@@ -11,7 +11,7 @@ app:
     nodeTestArgs: pnpm test:coverage
     continueOnError: false
   sonar:
-    enabled: false
+    enabled: true
     sonarProjectName: tsc-nextjs-plp
     skipQualityGate: 
 
