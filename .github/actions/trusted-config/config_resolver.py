@@ -91,7 +91,7 @@ resolved_config.update({
     "cd": app_node.get("cd", False) or app_maven.get("cd", False),
     "publishGit": app_maven.get("publishGit") or app_node.get("publishGit", False),
     "sonarProjectName": app_sonar.get("sonarProjectName", ""),
-    "akamaiCacheClear": features.get("akamaiCacheClear", False),
+    "akamaiCacheClear": False,
     "redisCacheClear": features.get("redisCacheClear", False),
     "scanning": features.get("scanning", False),
     "nodeContinueOnError": app_node.get("continueOnError", False),
@@ -120,6 +120,19 @@ if not environment:
 resolved_config["environment"] = environment
 resolved_config["autoDeploy"] = auto_deploy
 resolved_config["deployEnvs"] = envs
+
+# === Determine Akamai Cache Clear Flag ===
+env_clear_flag = None
+if environment in deploy.get("production", {}).get("spaces", {}):
+    env_clear_flag = deploy.get("production", {}).get("akamaiCacheClear")
+else:
+    env_clear_flag = deploy.get("akamaiCacheClear")
+
+flag = not str(environment).startswith("p") if env_clear_flag is None else env_clear_flag
+if "akamaiCacheClear" in features:
+    flag = features.get("akamaiCacheClear")
+
+resolved_config["akamaiCacheClear"] = flag
 
 print(f"🚀 Auto Deploy Enabled: {auto_deploy}")
 print(f"🌍 Target Environments: {envs}")
@@ -168,6 +181,7 @@ resolved_config["namespace"] = space.get("namespace")
 cluster = space.get("cluster", "")
 resolved_config["cluster"] = cluster
 resolved_config["aem_env"] = space.get("aem_env", "")
+resolved_config["akamai_cp_codes"] = space.get("cp_codes", [])
 
 # === Resource Group Logic derived from cluster
 resourcegroup = space.get("resourcegroup")
@@ -206,6 +220,7 @@ if output_file:
         f.write(f"deployEnvsJson={json.dumps(envs)}\n")
         f.write(f"autoDeploy={str(auto_deploy).lower()}\n")
         f.write(f"aemEnv={space.get('aem_env', '')}\n")
+        f.write(f"cpCodes={json.dumps(space.get('cp_codes', []))}\n")
         f.write(f"buildDeploy={str(app_node.get('buildDeploy', False) or app_maven.get('buildDeploy', False)).lower()}\n")
         f.write(f"skipQualityGate={str(resolved_config.get('skipQualityGate', False)).lower()}\n")
         f.write(f"nodeContinueOnError={str(app_node.get('continueOnError', False)).lower()}\n")
