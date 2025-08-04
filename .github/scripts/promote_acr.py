@@ -33,7 +33,13 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
 
     # Ensure the CLI is authenticated; fall back to service principal login if needed
     try:
-        run(["az", "account", "show", "--output", "none"])
+        subprocess.run(
+            ["az", "account", "show", "--output", "none"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
     except subprocess.CalledProcessError:
         client_id = os.environ.get("AZURE_CLIENT_ID")
         tenant_id = os.environ.get("AZURE_TENANT_ID")
@@ -59,6 +65,12 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
                 tenant_id,
             ]
         )
+
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID_PROD") or os.environ.get(
+        "AZURE_SUBSCRIPTION_ID"
+    )
+    if subscription_id:
+        run(["az", "account", "set", "--subscription", subscription_id])
 
     nonprod_login = nonprod_acr if '.' in nonprod_acr else f"{nonprod_acr}.azurecr.io"
 
