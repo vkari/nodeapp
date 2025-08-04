@@ -229,20 +229,9 @@ jobs:
           image_repo: ${{ env.AZURE_CONTAINER_REGISTRY }}
           image_path: ${{ env.REPO_NAME }}
           docker_tag: ${{ env.DOCKER_TAG }}
-      # - name: 🔄 Promote Docker Image to Prod
-      #   if: ${{ inputs.docker_tag != '' && startsWith(inputs.environment, 'prod') }}
-      #   uses: Tractor-Supply-Ecommerce/pipeline-commons-library/.github/actions/docker-promote@main
-      #   with:
-      #     acr_nonprod: ${{ secrets.ACR_NONPROD }}
-      #     acr_name: ${{ env.AZURE_CONTAINER_NAME }}
-      #     acr_username_nonprod: ${{ secrets.ACR_USERNAME_NONPROD }}
-      #     acr_password_nonprod: ${{ secrets.ACR_PASSWORD_NONPROD }}
-      #     acr_username_prod: ${{ secrets.ACR_USERNAME_PROD }}
-      #     acr_password_prod: ${{ secrets.ACR_PASSWORD_PROD }}
-      #     environment: ${{ inputs.environment }}
-      #     image_repo: ${{ env.AZURE_CONTAINER_REGISTRY }}
-      #     image_path: ${{ env.REPO_NAME }}
-      #     docker_tag: ${{ env.DOCKER_TAG }}
+      - name: 🔄 Promote Docker Image to Prod
+        if: ${{ inputs.docker_tag != '' && startsWith(inputs.environment, 'prod') }}
+        run: python .github/scripts/promote_acr.py ${{ secrets.ACR_NONPROD }} ${{ env.AZURE_CONTAINER_NAME }} ${{ env.REPO_NAME }} ${{ env.DOCKER_TAG }} ${{ secrets.ACR_USERNAME_NONPROD }} ${{ secrets.ACR_PASSWORD_NONPROD }} ${{ secrets.ACR_USERNAME_PROD }} ${{ secrets.ACR_PASSWORD_PROD }}
 
 
   deploy:
