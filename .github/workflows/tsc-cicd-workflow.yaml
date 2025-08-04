@@ -223,6 +223,18 @@ jobs:
           image_repo: ${{ env.AZURE_CONTAINER_REGISTRY }}
           image_path: ${{ env.REPO_NAME }}
           docker_tag: ${{ env.DOCKER_TAG }}
+      - name: 🔄 Promote Docker Image to Prod
+        if: ${{ env.DOCKER_TAG != '' && startsWith(env.DEPLOY_ENV, 'prod') }}
+        run: |
+          python "$GITHUB_WORKSPACE/.github/scripts/promote_acr.py" \
+            "${{ secrets.ACR_NONPROD }}" \
+            "${{ env.AZURE_CONTAINER_NAME }}" \
+            "${{ env.REPO_NAME }}" \
+            "${{ env.DOCKER_TAG }}" \
+            "${{ secrets.ACR_USERNAME_NONPROD }}" \
+            "${{ secrets.ACR_PASSWORD_NONPROD }}" \
+            "${{ secrets.ACR_USERNAME_PROD }}" \
+            "${{ secrets.ACR_PASSWORD_PROD }}"
       - name: 🔍 Print CI step outputs
         run: |
           echo "docker_tag=${{ steps.set-tag.outputs.docker_tag }}"
