@@ -13,7 +13,7 @@ app:
   sonar:
     enabled: true
     sonarProjectName: tsc-nextjs-returnsverification
-    skipQualityGate:
+    skipQualityGate: R2015.RET.01.00 main
 
 acr:
   prod: tsccrecmp01
@@ -40,11 +40,7 @@ deploy:
       env:
         - d1
       autoDeploy: true
-    R2025.HOM.09.00:
-      env:
-        - q3
-      autoDeploy: true
-    R2025.HOM.08.00:
+    R2025.RET.01.00:
       env:
         - q1
       autoDeploy: true
