@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,35 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
     if not shutil.which("az"):
         print("Azure CLI not found. Please install az before running this script.")
         sys.exit(1)
+
+    # Ensure the CLI is authenticated; fall back to service principal login if needed
+    try:
+        run(["az", "account", "show", "--output", "none"])
+    except subprocess.CalledProcessError:
+        client_id = os.environ.get("AZURE_CLIENT_ID")
+        tenant_id = os.environ.get("AZURE_TENANT_ID")
+        client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+
+        if not all([client_id, tenant_id, client_secret]):
+            print(
+                "Azure CLI not logged in and service principal credentials are missing.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        run(
+            [
+                "az",
+                "login",
+                "--service-principal",
+                "-u",
+                client_id,
+                "-p",
+                client_secret,
+                "--tenant",
+                tenant_id,
+            ]
+        )
 
     nonprod_login = nonprod_acr if '.' in nonprod_acr else f"{nonprod_acr}.azurecr.io"
 
