@@ -38,7 +38,9 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
             "az", "acr", "repository", "show-tags",
             "--name", prod_acr,
             "--repository", image_repo,
-            "--output", "tsv"
+            "--output", "tsv",
+            "--username", prod_user,
+            "--password", prod_pass,
         ])
         if image_tag in tags_output.splitlines():
             print(f"Image {image_repo}:{image_tag} already exists in {prod_acr}")
