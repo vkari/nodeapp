@@ -5,9 +5,20 @@ import sys
 
 
 def run(cmd):
-    """Run a command and return its stdout."""
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-    return result.stdout.strip()
+    """Run a command and return its stdout, echoing stderr on failure."""
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        # Surface CLI errors for easier debugging
+        print(e.stderr or e.stdout, file=sys.stderr)
+        raise
 
 
 def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pass, prod_user, prod_pass):
