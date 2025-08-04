@@ -225,7 +225,8 @@ jobs:
           docker_tag: ${{ env.DOCKER_TAG }}
       - name: 🔧 Install Azure CLI
         if: ${{ env.DOCKER_TAG != '' && startsWith(env.DEPLOY_ENV, 'prod') }}
-        run: pip install --quiet azure-cli
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
       - name: 🔄 Promote Docker Image to Prod
         if: ${{ env.DOCKER_TAG != '' && startsWith(env.DEPLOY_ENV, 'prod') }}
         run: |
