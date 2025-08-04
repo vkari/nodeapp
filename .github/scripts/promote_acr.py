@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import shutil
 import subprocess
 import sys
 
@@ -10,6 +11,10 @@ def run(cmd):
 
 
 def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pass, prod_user, prod_pass):
+    if not shutil.which("az"):
+        print("Azure CLI not found. Please install az before running this script.")
+        sys.exit(1)
+
     nonprod_login = nonprod_acr if '.' in nonprod_acr else f"{nonprod_acr}.azurecr.io"
 
     # Check if tag exists in prod registry

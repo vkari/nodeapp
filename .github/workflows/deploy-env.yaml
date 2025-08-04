@@ -229,6 +229,9 @@ jobs:
           image_repo: ${{ env.AZURE_CONTAINER_REGISTRY }}
           image_path: ${{ env.REPO_NAME }}
           docker_tag: ${{ env.DOCKER_TAG }}
+      - name: 🔧 Install Azure CLI
+        if: ${{ inputs.docker_tag != '' && startsWith(inputs.environment, 'prod') }}
+        run: pip install --quiet azure-cli
       - name: 🔄 Promote Docker Image to Prod
         if: ${{ inputs.docker_tag != '' && startsWith(inputs.environment, 'prod') }}
         run: |
