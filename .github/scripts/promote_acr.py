@@ -76,7 +76,14 @@ def main(
             ]
         )
 
+
     run(["az", "account", "set", "--subscription", prod_subscription])
+    
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID_PROD") or os.environ.get(
+        "AZURE_SUBSCRIPTION_ID"
+    )
+    if subscription_id:
+        run(["az", "account", "set", "--subscription", subscription_id])
 
     nonprod_login = nonprod_acr if '.' in nonprod_acr else f"{nonprod_acr}.azurecr.io"
 
