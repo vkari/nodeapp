@@ -12,6 +12,9 @@ inputs:
   environment:
     description: Optional override environment
     required: false
+  docker_tag:
+    description: Optional Docker image tag
+    required: false
 
 outputs:
   environment:
@@ -124,7 +127,9 @@ runs:
         echo "AZURE_CONTAINER_REGISTRY=${ACR_NAME}.azurecr.io" >> $GITHUB_ENV
         echo "AZURE_CONTAINER_NAME=$ACR_NAME" >> $GITHUB_ENV
 
-        if [[ -z "$DOCKER_TAG" ]]; then
+        if [[ -n "${{ inputs.docker_tag }}" ]]; then
+          echo "DOCKER_TAG=${{ inputs.docker_tag }}" >> $GITHUB_ENV
+        elif [[ -z "$DOCKER_TAG" ]]; then
           formatted_branch="${GITHUB_REF_NAME//\//.}"
           echo "DOCKER_TAG=${formatted_branch}.${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
         fi

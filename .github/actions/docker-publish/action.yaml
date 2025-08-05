@@ -19,7 +19,7 @@ inputs:
   image_path:
     required: true
   docker_tag:
-    required: true
+    required: false
 
 outputs:
   docker_tag:
@@ -42,8 +42,14 @@ runs:
       id: set-tag
       shell: bash
       run: |
-        formatted_branch="${GITHUB_REF_NAME//\//.}"
-        tag="${formatted_branch}.${GITHUB_RUN_NUMBER}"
+        if [ -n "${{ inputs.docker_tag }}" ]; then
+          tag="${{ inputs.docker_tag }}"
+        elif [ -n "$DOCKER_TAG" ]; then
+          tag="$DOCKER_TAG"
+        else
+          formatted_branch="${GITHUB_REF_NAME//\//.}"
+          tag="${formatted_branch}.${GITHUB_RUN_NUMBER}"
+        fi
         echo "docker_tag=$tag" >> $GITHUB_OUTPUT
         echo "DOCKER_TAG=$tag" >> $GITHUB_ENV
         ls -lrt **
