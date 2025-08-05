@@ -37,7 +37,7 @@ deploy:
       env:
         - d1
       autoDeploy: true
-    M2025.BFF.03.00:
+    M2025.BFF.05.00:
       env:
         - d3
         - q3

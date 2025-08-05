@@ -13,7 +13,7 @@ app:
   sonar:
     enabled: true
     sonarProjectName: tsc-react-ai-chat
-    skipQualityGate: 
+    skipQualityGate: R2025.GPT.01.00
 
 acr:
   prod: tsccrecmp01

@@ -256,6 +256,7 @@ jobs:
             "${{ env.DOCKER_TAG }}" \
             "${{ secrets.ACR_USERNAME_NONPROD }}" \
             "${{ secrets.ACR_PASSWORD_NONPROD }}" \
+            "${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             "${{ secrets.ACR_USERNAME_PROD }}" \
             "${{ secrets.ACR_PASSWORD_PROD }}" \
             "${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}"
