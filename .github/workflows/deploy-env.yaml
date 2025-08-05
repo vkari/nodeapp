@@ -151,6 +151,7 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
           environment: ${{ inputs.environment }}
+          docker_tag: ${{ inputs.docker_tag }}
           secrets_json: ${{ toJson(secrets) }}
 
 #      - name: ☕ Setup Java
@@ -160,7 +161,7 @@ jobs:
 #          java-version: ${{ steps.trusted.outputs.javaVersion }}
 
       - name: 🔖 Set Docker Tag
-        if: ${{ steps.trusted.outputs.appType == 'nodejs' && steps.trusted.outputs.buildDeploy == 'true' }}
+        if: ${{ steps.trusted.outputs.buildDeploy == 'true' }}
         id: set-tag
         run: |
           
