@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+"""Promote a container image from non-prod ACR to prod ACR.
+
+Steps performed:
+1. Log in using the non-prod service principal (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+   AZURE_TENANT_ID).
+2. Select the non-prod subscription and pull the image from the non-prod registry.
+3. Retag the image for prod.
+4. Log in using the prod service principal (AZURE_CLIENT_ID_PROD,
+   AZURE_CLIENT_SECRET_PROD, AZURE_TENANT_ID_PROD).
+5. Select the prod subscription and push the image to the prod registry.
+"""
+
 import os
 import shutil
 import subprocess
@@ -25,31 +37,13 @@ def run(cmd):
         raise
 
 
-def ensure_login():
-    """Authenticate with a service principal if not already logged in."""
-    try:
-        subprocess.run(
-            ["az", "account", "show", "--output", "none"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        return
-    except subprocess.CalledProcessError:
-        pass
-
-    client_id = os.environ.get("AZURE_CLIENT_ID")
-    tenant_id = os.environ.get("AZURE_TENANT_ID")
-    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
-    if not all([client_id, tenant_id, client_secret]):
-        print(
-            "Azure CLI not logged in and service principal credentials are missing.",
-            file=sys.stderr,
-        )
+def login_service_principal(client_id, client_secret, tenant_id):
+    """Authenticate with a specific service principal."""
+    if not all([client_id, client_secret, tenant_id]):
+        print("Missing service principal credentials", file=sys.stderr)
         sys.exit(1)
 
-    print("🔐 Logging in with service principal")
+    print(f"🔐 Logging in with service principal {client_id}")
     run(
         [
             "az",
@@ -81,7 +75,12 @@ def main(
         print("Azure CLI not found. Please install az before running this script.")
         sys.exit(1)
 
-    ensure_login()
+    # Step 1: authenticate to non-prod
+    login_service_principal(
+        os.environ.get("AZURE_CLIENT_ID"),
+        os.environ.get("AZURE_CLIENT_SECRET"),
+        os.environ.get("AZURE_TENANT_ID"),
+    )
 
     nonprod_reg = nonprod_acr if "." in nonprod_acr else f"{nonprod_acr}.azurecr.io"
     prod_reg = prod_acr if "." in prod_acr else f"{prod_acr}.azurecr.io"
@@ -118,7 +117,12 @@ def main(
         ]
     )
 
-    # Step 5: switch to prod subscription
+    # Step 5: authenticate and switch to prod
+    login_service_principal(
+        os.environ.get("AZURE_CLIENT_ID_PROD"),
+        os.environ.get("AZURE_CLIENT_SECRET_PROD"),
+        os.environ.get("AZURE_TENANT_ID_PROD"),
+    )
     print(f"🔧 Selecting prod subscription {prod_subscription}")
     run(["az", "account", "set", "--subscription", prod_subscription])
 
