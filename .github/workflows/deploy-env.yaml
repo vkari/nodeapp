@@ -163,8 +163,10 @@ jobs:
         if: ${{ steps.trusted.outputs.appType == 'nodejs' && steps.trusted.outputs.buildDeploy == 'true' }}
         id: set-tag
         run: |
-          tag="${{ inputs.docker_tag }}"
-          if [ -z "$tag" ]; then
+          
+          if [ -n "${{ inputs.docker_tag }}" ]; then
+            tag="${{ inputs.docker_tag }}"
+          else
             formatted_branch="${GITHUB_REF_NAME//\//.}"
             tag="${formatted_branch}.${GITHUB_RUN_NUMBER}"
           fi
