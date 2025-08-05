@@ -7,6 +7,11 @@ subscriptions, it authenticates directly to each registry using the
 provided credentials (falling back to ``az acr login`` when no credentials
 are supplied).
 
+It accepts either eight arguments (the simplified interface) or ten
+arguments where non-prod and prod subscription IDs are supplied after the
+non-prod credentials. The subscription values are ignored, allowing legacy
+calls to continue working without modification.
+
 Steps performed:
 1. Log in to the non-prod registry and pull the specified image.
 2. Retag the image for prod.
@@ -84,10 +89,16 @@ def main(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 9:
+    args = sys.argv[1:]
+    if len(args) == 8:
+        main(*args)
+    elif len(args) == 10:
+        # Legacy calling convention with subscription IDs after the
+        # non-prod credentials and after the prod credentials respectively.
+        main(args[0], args[1], args[2], args[3], args[4], args[5], args[7], args[8])
+    else:
         print(
             "Usage: promote_acr.py <nonprod_acr> <prod_acr> <image_repo> <image_tag> "
-            "<nonprod_user> <nonprod_pass> <prod_user> <prod_pass>",
+            "<nonprod_user> <nonprod_pass> <prod_user> <prod_pass> [<nonprod_subscription> <prod_subscription>]",
         )
         sys.exit(1)
-    main(*sys.argv[1:])
