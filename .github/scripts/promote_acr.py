@@ -26,7 +26,17 @@ def run(cmd):
         raise
 
 
-def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pass, prod_user, prod_pass):
+def main(
+    nonprod_acr,
+    prod_acr,
+    image_repo,
+    image_tag,
+    nonprod_user,
+    nonprod_pass,
+    prod_user,
+    prod_pass,
+    prod_subscription,
+):
     if not shutil.which("az"):
         print("Azure CLI not found. Please install az before running this script.")
         sys.exit(1)
@@ -66,6 +76,9 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
             ]
         )
 
+
+    run(["az", "account", "set", "--subscription", prod_subscription])
+    
     subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID_PROD") or os.environ.get(
         "AZURE_SUBSCRIPTION_ID"
     )
@@ -77,12 +90,22 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
     # Check if tag exists in prod registry
     try:
         tags_output = run([
-            "az", "acr", "repository", "show-tags",
-            "--name", prod_acr,
-            "--repository", image_repo,
-            "--output", "tsv",
-            "--username", prod_user,
-            "--password", prod_pass,
+            "az",
+            "acr",
+            "repository",
+            "show-tags",
+            "--name",
+            prod_acr,
+            "--repository",
+            image_repo,
+            "--output",
+            "tsv",
+            "--username",
+            prod_user,
+            "--password",
+            prod_pass,
+            "--subscription",
+            prod_subscription,
         ])
         if image_tag in tags_output.splitlines():
             print(f"Image {image_repo}:{image_tag} already exists in {prod_acr}")
@@ -94,24 +117,49 @@ def main(nonprod_acr, prod_acr, image_repo, image_tag, nonprod_user, nonprod_pas
     print(f"Promoting {image_repo}:{image_tag} from {nonprod_acr} to {prod_acr}")
 
     # Authenticate to the target registry so the import command can push the image
-    run(["az", "acr", "login", "--name", prod_acr, "--username", prod_user, "--password", prod_pass])
+    run(
+        [
+            "az",
+            "acr",
+            "login",
+            "--name",
+            prod_acr,
+            "--username",
+            prod_user,
+            "--password",
+            prod_pass,
+            "--subscription",
+            prod_subscription,
+        ]
+    )
 
     # Import the image into prod
-    run([
-        "az", "acr", "import",
-        "--name", prod_acr,
-        "--source", f"{nonprod_login}/{image_repo}:{image_tag}",
-        "--image", f"{image_repo}:{image_tag}",
-        "--username", nonprod_user,
-        "--password", nonprod_pass,
-    ])
+    run(
+        [
+            "az",
+            "acr",
+            "import",
+            "--name",
+            prod_acr,
+            "--source",
+            f"{nonprod_login}/{image_repo}:{image_tag}",
+            "--image",
+            f"{image_repo}:{image_tag}",
+            "--username",
+            nonprod_user,
+            "--password",
+            nonprod_pass,
+            "--subscription",
+            prod_subscription,
+        ]
+    )
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 9:
+    if len(sys.argv) != 10:
         print(
             "Usage: promote_acr.py <nonprod_acr> <prod_acr> <image_repo> <image_tag> "
-            "<nonprod_user> <nonprod_pass> <prod_user> <prod_pass>"
+            "<nonprod_user> <nonprod_pass> <prod_user> <prod_pass> <prod_subscription>",
         )
         sys.exit(1)
     main(*sys.argv[1:])
