@@ -72,6 +72,5 @@ deploy:
         cluster: aks-wcs-p-centralus-01
 
 features:
-  akamaiCacheClear: false
   redisCacheClear: false
   scanning: false
