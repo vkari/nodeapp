@@ -6,7 +6,7 @@ import sys
 
 
 def run(cmd):
-    """Run a command and return its stdout, surfacing all output on failure."""
+    """Run a shell command, showing output when it fails."""
     try:
         result = subprocess.run(
             cmd,
@@ -17,13 +17,52 @@ def run(cmd):
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        # Surface CLI errors for easier debugging
         print("Command failed:", " ".join(cmd), file=sys.stderr)
         if e.stdout:
             print(e.stdout, file=sys.stderr)
         if e.stderr:
             print(e.stderr, file=sys.stderr)
         raise
+
+
+def ensure_login():
+    """Authenticate with a service principal if not already logged in."""
+    try:
+        subprocess.run(
+            ["az", "account", "show", "--output", "none"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return
+    except subprocess.CalledProcessError:
+        pass
+
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    if not all([client_id, tenant_id, client_secret]):
+        print(
+            "Azure CLI not logged in and service principal credentials are missing.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print("🔐 Logging in with service principal")
+    run(
+        [
+            "az",
+            "login",
+            "--service-principal",
+            "-u",
+            client_id,
+            "-p",
+            client_secret,
+            "--tenant",
+            tenant_id,
+        ]
+    )
 
 
 def main(
@@ -35,88 +74,56 @@ def main(
     nonprod_pass,
     prod_user,
     prod_pass,
+    nonprod_subscription,
     prod_subscription,
 ):
     if not shutil.which("az"):
         print("Azure CLI not found. Please install az before running this script.")
         sys.exit(1)
 
-    # Ensure the CLI is authenticated; fall back to service principal login if needed
-    try:
-        subprocess.run(
-            ["az", "account", "show", "--output", "none"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    except subprocess.CalledProcessError:
-        client_id = os.environ.get("AZURE_CLIENT_ID")
-        tenant_id = os.environ.get("AZURE_TENANT_ID")
-        client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    ensure_login()
 
-        if not all([client_id, tenant_id, client_secret]):
-            print(
-                "Azure CLI not logged in and service principal credentials are missing.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    nonprod_reg = nonprod_acr if "." in nonprod_acr else f"{nonprod_acr}.azurecr.io"
+    prod_reg = prod_acr if "." in prod_acr else f"{prod_acr}.azurecr.io"
 
-        run(
-            [
-                "az",
-                "login",
-                "--service-principal",
-                "-u",
-                client_id,
-                "-p",
-                client_secret,
-                "--tenant",
-                tenant_id,
-            ]
-        )
+    # Step 2: select non-prod subscription
+    print(f"🔧 Selecting non-prod subscription {nonprod_subscription}")
+    run(["az", "account", "set", "--subscription", nonprod_subscription])
 
-
-    run(["az", "account", "set", "--subscription", prod_subscription])
-    
-    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID_PROD") or os.environ.get(
-        "AZURE_SUBSCRIPTION_ID"
-    )
-    if subscription_id:
-        run(["az", "account", "set", "--subscription", subscription_id])
-
-    nonprod_login = nonprod_acr if '.' in nonprod_acr else f"{nonprod_acr}.azurecr.io"
-
-    # Check if tag exists in prod registry
-    try:
-        tags_output = run([
+    # Step 3: log in to non-prod registry and pull image
+    print(f"📥 Pulling {nonprod_reg}/{image_repo}:{image_tag}")
+    run(
+        [
             "az",
             "acr",
-            "repository",
-            "show-tags",
+            "login",
             "--name",
-            prod_acr,
-            "--repository",
-            image_repo,
-            "--output",
-            "tsv",
+            nonprod_acr,
             "--username",
-            prod_user,
+            nonprod_user,
             "--password",
-            prod_pass,
-            "--subscription",
-            prod_subscription,
-        ])
-        if image_tag in tags_output.splitlines():
-            print(f"Image {image_repo}:{image_tag} already exists in {prod_acr}")
-            return
-    except subprocess.CalledProcessError:
-        # Repository may not exist yet; proceed with import
-        pass
+            nonprod_pass,
+        ]
+    )
+    run(["docker", "pull", f"{nonprod_reg}/{image_repo}:{image_tag}"])
 
-    print(f"Promoting {image_repo}:{image_tag} from {nonprod_acr} to {prod_acr}")
+    # Step 4: retag for prod
+    print("🏷️ Retagging for prod")
+    run(
+        [
+            "docker",
+            "tag",
+            f"{nonprod_reg}/{image_repo}:{image_tag}",
+            f"{prod_reg}/{image_repo}:{image_tag}",
+        ]
+    )
 
-    # Authenticate to the target registry so the import command can push the image
+    # Step 5: switch to prod subscription
+    print(f"🔧 Selecting prod subscription {prod_subscription}")
+    run(["az", "account", "set", "--subscription", prod_subscription])
+
+    # Step 6: log in to prod registry and push the image
+    print(f"🚀 Pushing to {prod_reg}/{image_repo}:{image_tag}")
     run(
         [
             "az",
@@ -128,38 +135,17 @@ def main(
             prod_user,
             "--password",
             prod_pass,
-            "--subscription",
-            prod_subscription,
         ]
     )
-
-    # Import the image into prod
-    run(
-        [
-            "az",
-            "acr",
-            "import",
-            "--name",
-            prod_acr,
-            "--source",
-            f"{nonprod_login}/{image_repo}:{image_tag}",
-            "--image",
-            f"{image_repo}:{image_tag}",
-            "--username",
-            nonprod_user,
-            "--password",
-            nonprod_pass,
-            "--subscription",
-            prod_subscription,
-        ]
-    )
+    run(["docker", "push", f"{prod_reg}/{image_repo}:{image_tag}"])
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 10:
+    if len(sys.argv) != 11:
         print(
             "Usage: promote_acr.py <nonprod_acr> <prod_acr> <image_repo> <image_tag> "
-            "<nonprod_user> <nonprod_pass> <prod_user> <prod_pass> <prod_subscription>",
+            "<nonprod_user> <nonprod_pass> <prod_user> <prod_pass> "
+            "<nonprod_subscription> <prod_subscription>",
         )
         sys.exit(1)
     main(*sys.argv[1:])

@@ -258,6 +258,7 @@ jobs:
             "${{ secrets.ACR_PASSWORD_NONPROD }}" \
             "${{ secrets.ACR_USERNAME_PROD }}" \
             "${{ secrets.ACR_PASSWORD_PROD }}" \
+            "${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             "${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}"
 
   deploy:
