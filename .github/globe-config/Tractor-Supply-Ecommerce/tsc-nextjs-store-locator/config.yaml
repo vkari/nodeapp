@@ -43,7 +43,7 @@ deploy:
       autoDeploy: true
     R2025.SLO.04.00:
       env:
-        - q1
+        - q3
       autoDeploy: true
   spaces:
     d1:

@@ -160,7 +160,7 @@ jobs:
 #          java-version: ${{ steps.trusted.outputs.javaVersion }}
 
       - name: 🔖 Set Docker Tag
-        if: ${{ steps.trusted.outputs.appType == 'nodejs' && steps.trusted.outputs.buildDeploy == 'true' }}
+        if: ${{  steps.trusted.outputs.buildDeploy == 'true' }}
         id: set-tag
         run: |
           
@@ -210,7 +210,7 @@ jobs:
           sonar_project_name: ${{ steps.trusted.outputs.sonarProjectName }}
           skip_quality_gate: ${{ steps.trusted.outputs.skipQualityGate }}
       - name: 🏷️ Create and Push Git Tag - ${{ env.DOCKER_TAG }}
-        if: ${{ steps.trusted.outputs.cd == 'true' }}
+        if: ${{ steps.trusted.outputs.cd == 'true' && steps.trusted.outputs.buildDeploy == 'true' }}
         env:
           GH_USER: ${{ secrets.GH_USER }}
           GH_PAT: ${{ secrets.GH_PAT }}  # must be a PAT with `repo` + `workflow` scopes
