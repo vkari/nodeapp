@@ -7,6 +7,16 @@ import sys
 
 def run(cmd):
     """Run a command and return its stdout, surfacing all output on failure."""
+
+    def _mask(args):
+        masked = args[:]
+        for i, arg in enumerate(masked):
+            if arg in {"--password", "-p"} and i + 1 < len(masked):
+                masked[i + 1] = "****"
+        return masked
+
+    masked_cmd = _mask(cmd)
+    print("Running command:", " ".join(masked_cmd))
     try:
         result = subprocess.run(
             cmd,
@@ -18,7 +28,7 @@ def run(cmd):
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         # Surface CLI errors for easier debugging
-        print("Command failed:", " ".join(cmd), file=sys.stderr)
+        print("Command failed:", " ".join(masked_cmd), file=sys.stderr)
         if e.stdout:
             print(e.stdout, file=sys.stderr)
         if e.stderr:
@@ -37,6 +47,12 @@ def main(
     prod_pass,
     prod_subscription,
 ):
+    print("Parameters used for promotion:")
+    print(f"  Non-prod ACR: {nonprod_acr}")
+    print(f"  Prod ACR: {prod_acr}")
+    print(f"  Image repository: {image_repo}")
+    print(f"  Image tag: {image_tag}")
+    print(f"  Target subscription: {prod_subscription}")
     if not shutil.which("az"):
         print("Azure CLI not found. Please install az before running this script.")
         sys.exit(1)
@@ -83,6 +99,7 @@ def main(
         "AZURE_SUBSCRIPTION_ID"
     )
     if subscription_id:
+        print(f"Additional subscription from environment: {subscription_id}")
         run(["az", "account", "set", "--subscription", subscription_id])
 
     nonprod_login = nonprod_acr if '.' in nonprod_acr else f"{nonprod_acr}.azurecr.io"
