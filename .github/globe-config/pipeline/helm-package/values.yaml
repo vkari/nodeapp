@@ -1,0 +1,55 @@
+# Default values for mcp-ui-backend-Service.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+imagePullPolicy: Always
+replicaCount: 1
+appPort: ${appPort}
+namespace: ${namespace}
+applicationName: ${appName}
+businessUnit: ${businessUnit}
+environment: env
+
+
+image:
+  registry: ${registry}
+  organization: ${organization}
+  tag: ${tag}
+
+splunk:
+  token: ${token}
+
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: ${appPort}
+
+ingress:
+
+  host: ${hostname}
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/proxy-body-size: "15m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "15m"
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 400m
+    memory: 2048Mi
+  requests:
+    cpu: 50m
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

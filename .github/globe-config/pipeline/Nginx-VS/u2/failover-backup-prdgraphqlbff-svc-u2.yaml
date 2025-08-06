@@ -1,0 +1,29 @@
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: plp-u2-failover-vs
+  namespace: ecom-react-u2a
+spec:
+  host: priv-u2-plp-eu2.shop.tractorsupply.com
+  routes:
+  - path: /
+    splits:
+    - action:
+        pass: primary-svc
+      weight: 100
+    - action:
+        pass: secondary-svc
+      weight: 0
+  tls:
+    secret: shopwildcard-tls-ingress
+  upstreams:
+  - name: primary-svc
+    port: 3000
+    service: tscu2a-live-tsc-nextjs-plp
+    tls:
+      enable: false
+  - name: secondary-svc
+    port: 3000
+    service: plp-failover-backup-svc
+    tls:
+      enable: false

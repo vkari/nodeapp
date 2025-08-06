@@ -1,0 +1,19 @@
+{{- if .Values.extraPersistentVolumeClaims.loggingLiveVolume.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{ .Values.service.tenant }}{{ .Values.service.environmentName }}-{{.Values.extraPersistentVolumeClaims.loggingLiveVolume.storageName}}"
+spec:
+  accessModes:
+  - {{.Values.extraPersistentVolumeClaims.loggingLiveVolume.accessModes}}
+  {{- if .Values.extraPersistentVolumeClaims.loggingLiveVolume.nfsEnabled }}
+  storageClassName: ""
+  volumeName: {{ .Values.service.tenant }}{{ .Values.service.environmentName }}-{{.Values.extraPersistentVolumeClaims.loggingLiveVolume.storageName}}
+  {{- else }}
+  storageClassName: {{.Values.extraPersistentVolumeClaims.loggingLiveVolume.storageClass}}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{.Values.extraPersistentVolumeClaims.loggingLiveVolume.storageSize}}
+{{- end }}
+

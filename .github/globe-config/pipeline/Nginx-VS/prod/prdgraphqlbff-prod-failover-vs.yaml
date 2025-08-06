@@ -1,0 +1,29 @@
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: prdgraphqlbff-prod-failover-vs
+  namespace: ecom-svc-proda
+spec:
+  host: priv-prod-prd-srv-eu2.shop.tractorsupply.com
+  routes:
+  - path: /
+    splits:
+    - action:
+        pass: primary-svc
+      weight: 0
+    - action:
+        pass: secondary-svc
+      weight: 100
+  tls:
+    secret: shopwildcard-tls-ingress
+  upstreams:
+  - name: primary-svc
+    port: 8080
+    service: live-tsc-product-graphql-bff
+    tls:
+      enable: false
+  - name: secondary-svc
+    port: 8080
+    service: failover-backup-prdgraphqlbff-svc
+    tls:
+      enable: false

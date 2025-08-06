@@ -54,14 +54,14 @@ def login_registry(registry, username=None, password=None, name=None):
 
 
 def main(
-    nonprod_acr,
-    prod_acr,
-    image_repo,
-    image_tag,
-    nonprod_user,
-    nonprod_pass,
-    prod_user,
-    prod_pass,
+        nonprod_acr,
+        prod_acr,
+        image_repo,
+        image_tag,
+        nonprod_user,
+        nonprod_pass,
+        prod_user,
+        prod_pass,
 ):
     nonprod_reg = nonprod_acr if "." in nonprod_acr else f"{nonprod_acr}.azurecr.io"
     prod_reg = prod_acr if "." in prod_acr else f"{prod_acr}.azurecr.io"

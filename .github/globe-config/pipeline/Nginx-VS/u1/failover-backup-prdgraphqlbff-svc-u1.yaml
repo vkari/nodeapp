@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: failover-backup-prdgraphqlbff-svc
+  namespace: ecom-svc-u1a
+spec:
+  externalName: live-tsc-product-graphql-bff.ecom-svc-u1b.svc.cluster.local
+  sessionAffinity: None
+  type: ExternalName
