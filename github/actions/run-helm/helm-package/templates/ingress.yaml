@@ -5,8 +5,8 @@ metadata:
   annotations:
   generation: 1
   labels:
-    app: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
-  name: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+    app: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
+  name: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
   namespace: {{ .Values.service.namespace }}
 spec:
   ingressClassName: nginx-plus
@@ -16,7 +16,7 @@ spec:
       paths:
       - backend:
           service:
-            name: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+            name: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
             port:
               number: {{ $.Values.service.port }}
         path: /
@@ -26,7 +26,7 @@ spec:
       paths:
       - backend:
           service:
-            name: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+            name: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
             port:
               number: {{ $.Values.service.port }}
         path: /

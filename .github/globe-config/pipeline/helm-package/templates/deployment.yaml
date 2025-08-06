@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Chart.Name }}
+  name: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
   namespace: {{ .Values.service.namespace }}
   labels:
-    app: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+    app: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "-" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -14,23 +14,23 @@ spec:
   replicas: {{ .Values.service.replica }}
   selector:
     matchLabels:
-      app: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+      app: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
       chart: {{ .Chart.Name }}
       release: {{ .Release.Name }}
       heritage: {{ .Release.Service }}
       app.kubernetes.io/name: {{ include "name" $ }}
       app.kubernetes.io/instance: {{ .Release.Name }}
-      component: {{ $.Values.service.environmentType }}{{ .Chart.Name }}
+      component: {{ $.Values.service.tenant }}{{ $.Values.service.environmentName }}{{ $.Values.service.environmentType }}{{ .Values.service.name }}
   template:
     metadata:
       labels:
-        app: {{ $.Values.service.environmentType }}-{{ .Chart.Name }}
+        app: {{ $.Values.service.environmentType }}-{{ $.Values.service.environmentName }}-{{ .Chart.Name }}
         chart: {{ .Chart.Name }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
         app.kubernetes.io/name: {{ include "name" $ }}
         app.kubernetes.io/instance: {{ .Release.Name }}
-        component: {{ $.Values.service.environmentType }}{{ .Chart.Name }}
+        component: {{ $.Values.service.tenant }}{{ $.Values.service.environmentName }}{{ $.Values.service.environmentType }}{{ .Values.service.name }}
     spec:
       volumes:
 # pv change
